@@ -1,0 +1,6 @@
+**/*.pyc
+.venv
+.history
+data
+
+poetry.lock

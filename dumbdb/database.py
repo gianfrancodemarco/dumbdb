@@ -1,9 +1,18 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
 
-from dumbdb.models import QueryResult, Table
+from dumbdb.models import QueryResult
 
 
+@dataclass
 class Database(ABC):
+    name: str
+    root_dir: Path = Path("./data")
+
+    @abstractmethod
+    def create_database(name: str) -> None:
+        raise NotImplementedError()
 
     @abstractmethod
     def create_table(name: str) -> None:
@@ -14,17 +23,17 @@ class Database(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def insert(table: Table, value: dict) -> None:
+    def insert(table: str, value: dict) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def update(table: Table, value: dict) -> None:
+    def update(table: str, value: dict) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def delete(table: Table, value: dict) -> None:
+    def delete(table: str, value: dict) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def query(table: Table, query: dict) -> QueryResult:
+    def query(table: str, query: dict) -> QueryResult:
         raise NotImplementedError()

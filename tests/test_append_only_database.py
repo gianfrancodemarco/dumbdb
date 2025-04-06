@@ -1,6 +1,7 @@
 import csv
 import logging
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -177,13 +178,37 @@ def test_drop_table():
 
 
 def test_append_only_database_performance():
-    num_rows = 10_000
     with tempfile.TemporaryDirectory() as temp_dir:
         db = AppendOnlyDatabase(name="test", root_dir=Path(temp_dir))
         db.create_table("users", ["id", "name", "age"])
 
-        logging.info(
-            f"Inserting {num_rows} identical rows into the users table")
+        num_rows = 10_000
+        for i in range(num_rows//1000):
+            logging.info(f"Current number of rows in the db: {i*1000}")
+            start = time.time()
+            for j in range(1000):
+                db.insert(
+                    "users", {"id": "1", "name": "John Doe", "age": str(j)})
+            end = time.time()
+            logging.info(
+                f"Time taken to insert 1000 rows: {end-start:.4f} seconds")
+
+        db.drop_table("users")
+        db.create_table("users", ["id", "name", "age"])
+
+        for i in range(num_rows//1000):
+            for j in range(1000):
+                db.insert(
+                    "users", {"id": "1", "name": "John Doe", "age": str(j)})
+            logging.info(f"Current number of rows in the db: {(i+1)*1000}")
+            start = time.time()
+            db.query("users", {"id": "1"})
+            end = time.time()
+            logging.info(
+                f"Time taken to query 1 row: {end-start:.4f} seconds")
+
+        db.drop_table("users")
+        db.create_table("users", ["id", "name", "age"])
 
         # Insert data into the table
         for i in range(num_rows):

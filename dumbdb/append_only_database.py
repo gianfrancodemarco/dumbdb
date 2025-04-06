@@ -14,16 +14,16 @@ class AppendOnlyDatabase(Database):
     This database does not store data in memory, but rather on disk.
     It only appends data to the end of the file. For each primary key, the last record is the valid one.
     """
-    name: str
-    root_dir: Path = Path("./data")
 
     @property
     def tables_dir(self) -> Path:
         return self.root_dir / f"{self.name}/tables"
 
-    def __init__(self, name: str, root_dir: Path):
-        self.name = name
-        self.root_dir = root_dir
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.create_database()
+
+    def create_database(self) -> None:
         if not self.tables_dir.exists():
             self.tables_dir.mkdir(parents=True)
 
@@ -125,11 +125,7 @@ class AppendOnlyDatabase(Database):
         return data
 
     def drop_table(self, table_name: str) -> None:
-        """Drop a table.
-
-        Args:
-            table_name(str): The name of the table to drop.
-        """
+        """Drop a table."""
         table_file = self.get_table_file_path(table_name)
         if not table_file.exists():
             raise ValueError(f"Table '{table_name}' does not exist")
@@ -137,11 +133,7 @@ class AppendOnlyDatabase(Database):
         table_file.unlink()
 
     def compact_table(self, table_name: str):
-        """Compact a table.
-
-        Args:
-            table_name(str): The name of the table to compact.
-        """
+        """Compact a table."""
         table_file = self.get_table_file_path(table_name)
         if not table_file.exists():
             raise ValueError(f"Table '{table_name}' does not exist")

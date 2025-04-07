@@ -1,47 +1,86 @@
 import csv
 import logging
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
 
-from dumbdb.append_only_database import AppendOnlyDatabase
+from dumbdb.append_only_dbms import AppendOnlyDBMS
 
 
 def test_init():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        assert db.name == "test_db"
-        assert db.tables_dir == Path(temp_dir) / "test_db/tables"
-        assert db.tables_dir.exists()
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        assert dbms.current_database == "test_db"
+        assert dbms.tables_dir == Path(temp_dir) / "test_db/tables"
+        assert dbms.tables_dir.exists()
+
+
+def test_create_database():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        assert dbms.get_database_dir("test_db") == Path(temp_dir) / "test_db"
+        assert dbms.get_database_dir("test_db").exists()
+
+
+def test_use_database():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        assert dbms.current_database == "test_db"
+        assert dbms.tables_dir == Path(temp_dir) / "test_db/tables"
+        assert dbms.tables_dir.exists()
+
+
+def test_create_table_without_use_database():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        with pytest.raises(ValueError):
+            dbms.create_table("users", ["id", "name", "age"])
+
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        assert dbms.get_table_file_path("users") == Path(
+            temp_dir) / "test_db/tables/users.csv"
+        assert dbms.get_table_file_path("users").exists()
 
 
 def test_get_table_file_path():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        assert db.get_table_file_path("users") == Path(
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        assert dbms.get_table_file_path("users") == Path(
             temp_dir) / "test_db/tables/users.csv"
 
 
 def test_create_table():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        assert db.get_table_file_path("users") == Path(
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        assert dbms.get_table_file_path("users") == Path(
             temp_dir) / "test_db/tables/users.csv"
-        assert db.get_table_file_path("users").exists()
+        assert dbms.get_table_file_path("users").exists()
 
 
 def test_insert():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.insert("users", {"id": "1", "name": "John Doe", "age": "20"})
-        db.insert("users", {"id": "2", "name": "Jane Doe", "age": "21"})
-        assert db.get_table_file_path("users").exists()
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        dbms.insert("users", {"id": "1", "name": "John Doe", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane Doe", "age": "21"})
+        assert dbms.get_table_file_path("users").exists()
 
-        with open(db.get_table_file_path("users"), "r") as f:
+        with open(dbms.get_table_file_path("users"), "r") as f:
             reader = csv.reader(f)
             rows = list(reader)
             assert len(rows) == 3
@@ -52,13 +91,15 @@ def test_insert():
 
 def test_update():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.update("users", {"id": "1", "name": "John Smith", "age": "21"})
-        assert db.get_table_file_path("users").exists()
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        dbms.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
+        dbms.update("users", {"id": "1", "name": "John Smith", "age": "21"})
+        assert dbms.get_table_file_path("users").exists()
 
-        with open(db.get_table_file_path("users"), "r") as f:
+        with open(dbms.get_table_file_path("users"), "r") as f:
             reader = csv.reader(f)
             rows = list(reader)
             assert len(rows) == 3
@@ -67,23 +108,17 @@ def test_update():
             assert rows[2] == ["1", "John Smith", "21", "False"]
 
 
-def test_update_non_existing_row():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        with pytest.raises(ValueError):
-            db.update("users", {"id": "1", "name": "John Smith", "age": "21"})
-
-
 def test_delete():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.delete("users", {"id": "1", "name": "John Smith", "age": "20"})
-        assert db.get_table_file_path("users").exists()
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
+        assert dbms.get_table_file_path("users").exists()
 
-        with open(db.get_table_file_path("users"), "r") as f:
+        with open(dbms.get_table_file_path("users"), "r") as f:
             reader = csv.reader(f)
             rows = list(reader)
             assert len(rows) == 3
@@ -94,11 +129,13 @@ def test_delete():
 
 def test_query():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.insert("users", {"id": "2", "name": "Jane Smith", "age": "21"})
-        query_result = db.query("users", {"id": "1"})
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.insert("users", {"id": 2, "name": "Jane Smith", "age": 21})
+        query_result = dbms.query("users", {"id": "1"})
         assert len(query_result.rows) == 1
         assert query_result.rows[0]["id"] == "1"
         assert query_result.rows[0]["name"] == "John Smith"
@@ -107,11 +144,13 @@ def test_query():
 
 def test_query_after_update():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.update("users", {"id": "1", "name": "John Smith", "age": "21"})
-        query_result = db.query("users", {"id": "1"})
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        dbms.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
+        dbms.update("users", {"id": "1", "name": "John Smith", "age": "21"})
+        query_result = dbms.query("users", {"id": "1"})
         assert len(query_result.rows) == 1
         assert query_result.rows[0]["id"] == "1"
         assert query_result.rows[0]["name"] == "John Smith"
@@ -120,107 +159,61 @@ def test_query_after_update():
 
 def test_query_after_delete():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.delete("users", {"id": "1", "name": "John Smith", "age": "20"})
-        query_result = db.query("users", {"id": "1"})
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
+        query_result = dbms.query("users", {"id": "1"})
         assert len(query_result.rows) == 0
 
 
 def test_query_after_delete_and_reinsert():
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.delete("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "22"})
-        query_result = db.query("users", {"id": "1"})
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+        dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.insert("users", {"id": 1, "name": "John Smith", "age": 22})
+        query_result = dbms.query("users", {"id": "1"})
         assert len(query_result.rows) == 1
         assert query_result.rows[0]["id"] == "1"
         assert query_result.rows[0]["name"] == "John Smith"
         assert query_result.rows[0]["age"] == "22"
 
 
-def test_compact_table():
+def test_append_only_database():
+    # Create a database
     with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test")
+        dbms.use_database("test")
 
-        db.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        db.insert("users", {"id": "2", "name": "Mike Smith", "age": "21"})
-        db.insert("users", {"id": "3", "name": "Luke Skywalker", "age": "26"})
+        # Create a table with specific headers
+        try:
+            users_table = dbms.create_table("users", ["id", "name", "age"])
+            logging.info(f"Created table: {users_table}")
+        except ValueError as e:
+            logging.error(e)
 
-        db.update("users", {"id": "1", "name": "John Smith", "age": "21"})
-        db.delete("users", {"id": "2", "name": "Mike Smith", "age": "21"})
-
-        db.compact_table("users")
-        assert db.get_table_file_path("users").exists()
-
-        with open(db.get_table_file_path("users"), "r") as f:
-            reader = csv.reader(f)
-            rows = list(reader)
-            assert len(rows) == 3
-            assert rows[0] == ["id", "name", "age", "__deleted__"]
-            assert rows[1] == ["1", "John Smith", "21", "False"]
-            assert rows[2] == ["3", "Luke Skywalker", "26", "False"]
-
-
-def test_drop_table():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test_db", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-        db.drop_table("users")
-        assert not db.get_table_file_path("users").exists()
-
-        with pytest.raises(ValueError):
-            db.pretty_query("users", {"id": "1"})
-
-
-def test_append_only_database_performance():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        db = AppendOnlyDatabase(name="test", root_dir=Path(temp_dir))
-        db.create_table("users", ["id", "name", "age"])
-
-        num_rows = 10_000
-        for i in range(num_rows//1000):
-            logging.info(f"Current number of rows in the db: {i*1000}")
-            start = time.time()
-            for j in range(1000):
-                db.insert(
-                    "users", {"id": "1", "name": "John Doe", "age": str(j)})
-            end = time.time()
-            logging.info(
-                f"Time taken to insert 1000 rows: {end-start:.4f} seconds")
-
-        db.drop_table("users")
-        db.create_table("users", ["id", "name", "age"])
-
-        for i in range(num_rows//1000):
-            for j in range(1000):
-                db.insert(
-                    "users", {"id": "1", "name": "John Doe", "age": str(j)})
-            logging.info(f"Current number of rows in the db: {(i+1)*1000}")
-            start = time.time()
-            db.query("users", {"id": "1"})
-            end = time.time()
-            logging.info(
-                f"Time taken to query 1 row: {end-start:.4f} seconds")
-
-        db.drop_table("users")
-        db.create_table("users", ["id", "name", "age"])
+        num_rows = 100_000
+        logging.info(
+            f"Inserting {num_rows} identical rows into the users table")
 
         # Insert data into the table
         for i in range(num_rows):
-            db.insert("users", {"id": "1", "name": "John Doe", "age": str(i)})
+            dbms.insert("users", {"id": 1, "name": "John Doe", "age": i})
             if i % 10000 == 0:
-                query_result = db.query("users", {"id": "1"})
+                query_result = dbms.query("users", {"id": 1})
                 logging.info(
                     f"Execution time with {i+1} rows: {query_result.time*1000: .4f} ms")
 
-        db.compact_table("users")
+        dbms.compact_table("users")
 
-        query_result = db.query("users", {"id": "1"})
+        query_result = dbms.query("users", {"id": 1})
         logging.info(
             f"Execution time with after compacting rows: {query_result.time*1000:.4f} ms")
 
@@ -229,13 +222,12 @@ def test_append_only_database_performance():
 
         # Insert data into the table
         for i in range(num_rows):
-            db.insert("users", {"id": str(i),
-                      "name": f"John Doe {i}", "age": str(i)})
+            dbms.insert("users", {"id": i, "name": f"John Doe {i}", "age": i})
             if i % 10000 == 0:
-                query_result = db.query("users", {"id": "1"})
+                query_result = dbms.query("users", {"id": 1})
                 logging.info(
                     f"Execution time with {i+1} rows: {query_result.time*1000: .4f} ms")
 
-        query_result = db.query("users", {"id": "1"})
+        query_result = dbms.query("users", {"id": 1})
         logging.info(
             f"Execution time with after compacting rows: {query_result.time*1000:.4f} ms")

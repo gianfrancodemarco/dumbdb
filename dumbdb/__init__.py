@@ -1,3 +1,3 @@
-from .append_only_database import AppendOnlyDatabase
+from .append_only_dbms import AppendOnlyDBMS
 
-__all__ = ["AppendOnlyDatabase"]
+__all__ = ["AppendOnlyDBMS"]

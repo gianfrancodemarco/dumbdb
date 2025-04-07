@@ -2,6 +2,7 @@ import csv
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .dbms import DBMS, require_isset_database
 from .models import QueryResult
@@ -20,6 +21,9 @@ class AppendOnlyDBMS(DBMS):
 
     def get_tables_dir(self, db_name: str) -> Path:
         return self.get_database_dir(db_name) / "tables"
+
+    def get_tables(self, db_name: str) -> list[str]:
+        return [f.stem for f in self.get_tables_dir(db_name).iterdir() if f.is_file()]
 
     @property
     def current_database_dir(self) -> Path:
@@ -66,7 +70,7 @@ class AppendOnlyDBMS(DBMS):
             csv_writer.writerow(headers)
 
     @require_isset_database
-    def insert(self, table_name: str, value: dict):
+    def insert(self, table_name: str, row: dict):
         """Insert a new row into a table."""
         table_file = self.get_table_file_path(table_name)
         if not table_file.exists():
@@ -74,10 +78,10 @@ class AppendOnlyDBMS(DBMS):
 
         with open(table_file, 'a', newline='') as f:
             csv_writer = csv.writer(f)
-            csv_writer.writerow(list(value.values()) + [False])
+            csv_writer.writerow(list(row.values()) + [False])
 
     @require_isset_database
-    def update(self, table_name: str, value: dict) -> None:
+    def update(self, table_name: str, row: dict) -> None:
         """
         Update a row in a table.
         For append-only databases, an update is just an insert.
@@ -87,14 +91,14 @@ class AppendOnlyDBMS(DBMS):
         if not table_file.exists():
             raise ValueError(f"Table '{table_name}' does not exist")
 
-        query_result = self.query(table_name, {"id": value["id"]})
+        query_result = self.query(table_name, {"id": row["id"]})
         if not query_result.rows:
-            raise ValueError(f"Row with id {value['id']} does not exist")
+            raise ValueError(f"Row with id {row['id']} does not exist")
 
-        self.insert(table_name, value)
+        self.insert(table_name, row)
 
     @require_isset_database
-    def delete(self, table_name: str, value: dict) -> None:
+    def delete(self, table_name: str, row: dict) -> None:
         """
         Delete a row from a table.
         For append-only databases, a delete is an append with a special value to signal the deletion.
@@ -105,7 +109,7 @@ class AppendOnlyDBMS(DBMS):
 
         with open(table_file, 'a', newline='') as f:
             csv_writer = csv.writer(f)
-            csv_writer.writerow(list(value.values()) + [True])
+            csv_writer.writerow(list(row.values()) + [True])
 
     @require_isset_database
     def query(self, table_name: str, query: dict) -> QueryResult:
@@ -125,6 +129,10 @@ class AppendOnlyDBMS(DBMS):
         # Remove all rows for which the last line is a delete
         matching_rows = {k: v for k,
                          v in matching_rows.items() if v['__deleted__'] == 'False'}
+
+        # Remove the __deleted__ column
+        for row in matching_rows.values():
+            del row['__deleted__']
 
         return QueryResult(time.time() - start_time, list(matching_rows.values()))
 

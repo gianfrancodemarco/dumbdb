@@ -42,15 +42,15 @@ class DBMS(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def insert(table: str, value: dict) -> None:
+    def insert(table: str, row: dict) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def update(table: str, value: dict) -> None:
+    def update(table: str, row: dict) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def delete(table: str, value: dict) -> None:
+    def delete(table: str, row: dict) -> None:
         raise NotImplementedError()
 
     @abstractmethod

@@ -231,3 +231,10 @@ def test_append_only_database():
         query_result = dbms.query("users", {"id": 1})
         logging.info(
             f"Execution time with after compacting rows: {query_result.time*1000:.4f} ms")
+
+
+def test_use_database_with_nonexistent_database():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        with pytest.raises(ValueError, match="Database 'nonexistent_db' does not exist"):
+            dbms.use_database("nonexistent_db")

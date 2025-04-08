@@ -3,7 +3,9 @@ from dataclasses import dataclass, field
 from io import TextIOWrapper
 from time import time
 
-from .append_only_dbms import AppendOnlyDBMS, require_isset_database
+from .append_only_dbms import (AppendOnlyDBMS, require_exists_database,
+                               require_exists_table, require_isset_database,
+                               require_not_exists_table)
 from .hash_index import HashIndex
 from .models import QueryResult
 
@@ -12,28 +14,30 @@ from .models import QueryResult
 class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
     hash_indexes: dict[str, HashIndex] = field(default_factory=dict)
 
-    def use_database(self, name: str) -> None:
-        super().use_database(name)
-        for table in self.get_tables(name):
+    @require_exists_database
+    def use_database(self, db_name: str) -> None:
+        super().use_database(db_name)
+        for table in self.show_tables():
             self.hash_indexes[table] = HashIndex.from_csv(
                 self.get_table_file_path(table), "id")
 
     @require_isset_database
-    def create_table(self, name: str, headers: list[str] = None) -> None:
-        super().create_table(name, headers)
-        self.hash_indexes[name] = HashIndex()
+    @require_not_exists_table
+    def create_table(self, table_name: str, headers: list[str] = None) -> None:
+        super().create_table(table_name, headers)
+        self.hash_indexes[table_name] = HashIndex()
 
     @require_isset_database
-    def drop_table(self, name: str) -> None:
-        super().drop_table(name)
-        del self.hash_indexes[name]
+    @require_exists_table
+    def drop_table(self, table_name: str) -> None:
+        super().drop_table(table_name)
+        del self.hash_indexes[table_name]
 
     @require_isset_database
+    @require_exists_table
     def insert(self, table_name: str, row: dict) -> None:
         """Insert a new row into a table."""
         table_file = self.get_table_file_path(table_name)
-        if not table_file.exists():
-            raise ValueError(f"Table '{table_name}' does not exist")
 
         with open(table_file, 'a', newline='') as f:
             csv_writer = csv.writer(f)
@@ -44,17 +48,20 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
                 row["id"], start_byte, end_byte)
 
     @require_isset_database
+    @require_exists_table
     def update(self, table_name: str, row: dict) -> None:
         # Since the super class implementation of update is just an insert,
         # we only need to implement the index on the insert.
         super().update(table_name, row)
 
     @require_isset_database
+    @require_exists_table
     def delete(self, table_name: str, row: dict) -> None:
         super().delete(table_name, row)
         self.hash_indexes[table_name].delete(row["id"])
 
     @require_isset_database
+    @require_exists_table
     def query(self, table_name: str, query: dict) -> QueryResult:
         """
         If the search is by id, we can use the hash index to find the row.
@@ -62,13 +69,10 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
         """
         if "id" in query:
             start_time = time()
-            table_file = self.get_table_file_path(table_name)
-            if not table_file.exists():
-                raise ValueError(f"Table '{table_name}' does not exist")
-
             start_byte, end_byte = self.hash_indexes[table_name].get_row_offsets(
                 query["id"])
-            with open(table_file, 'rb') as f:
+
+            with open(self.get_table_file_path(table_name), 'rb') as f:
                 f = TextIOWrapper(f, encoding='utf-8', newline='')
 
                 # Read the header row and store it.

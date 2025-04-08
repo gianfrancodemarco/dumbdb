@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .dbms import DBMS, require_isset_database
+from .dbms import DBMS, require_exists_database, require_isset_database, require_exists_table, require_not_exists_table
 from .models import QueryResult
 
 
@@ -22,9 +22,6 @@ class AppendOnlyDBMS(DBMS):
     def get_tables_dir(self, db_name: str) -> Path:
         return self.get_database_dir(db_name) / "tables"
 
-    def get_tables(self, db_name: str) -> list[str]:
-        return [f.stem for f in self.get_tables_dir(db_name).iterdir() if f.is_file()]
-
     @property
     def current_database_dir(self) -> Path:
         return self.get_database_dir(self.current_database)
@@ -41,23 +38,25 @@ class AppendOnlyDBMS(DBMS):
         tables_dir = self.get_tables_dir(db_name)
         tables_dir.mkdir(parents=True)
 
-    def use_database(self, name: str) -> None:
-        db_dir = Path(self.root_dir / name)
-        if not db_dir.exists():
-            raise ValueError(
-                f"Database '{name}' does not exist. You must create it before using it.")
-        self.current_database = name
+    @require_exists_database
+    def use_database(self, db_name: str) -> None:
+        self.current_database = db_name
 
     def get_table_file_path(self, table_name: str) -> Path:
         return self.tables_dir / f"{table_name}.csv"
 
+    def show_databases(self) -> list[str]:
+        return [f.stem for f in self.root_dir.iterdir() if f.is_dir()]
+
     @require_isset_database
+    def show_tables(self) -> list[str]:
+        return [f.stem for f in self.get_tables_dir(self.current_database).iterdir() if f.is_file()]
+
+    @require_isset_database
+    @require_not_exists_table
     def create_table(self, table_name: str, headers: list[str] = None) -> None:
         """Create a new table in the database - which is just a new csv file."""
         table_file = self.get_table_file_path(table_name)
-
-        if table_file.exists():
-            raise ValueError(f"Table '{table_name}' already exists")
 
         if not headers:
             headers = ["id"]
@@ -70,27 +69,22 @@ class AppendOnlyDBMS(DBMS):
             csv_writer.writerow(headers)
 
     @require_isset_database
+    @require_exists_table
     def insert(self, table_name: str, row: dict):
         """Insert a new row into a table."""
         table_file = self.get_table_file_path(table_name)
-        if not table_file.exists():
-            raise ValueError(f"Table '{table_name}' does not exist")
-
         with open(table_file, 'a', newline='') as f:
             csv_writer = csv.writer(f)
             csv_writer.writerow(list(row.values()) + [False])
 
     @require_isset_database
+    @require_exists_table
     def update(self, table_name: str, row: dict) -> None:
         """
         Update a row in a table.
         For append-only databases, an update is just an insert.
         Before inserting, we check if the row already exists. If not, we throw an error.
         """
-        table_file = self.get_table_file_path(table_name)
-        if not table_file.exists():
-            raise ValueError(f"Table '{table_name}' does not exist")
-
         query_result = self.query(table_name, {"id": row["id"]})
         if not query_result.rows:
             raise ValueError(f"Row with id {row['id']} does not exist")
@@ -98,26 +92,23 @@ class AppendOnlyDBMS(DBMS):
         self.insert(table_name, row)
 
     @require_isset_database
+    @require_exists_table
     def delete(self, table_name: str, row: dict) -> None:
         """
         Delete a row from a table.
         For append-only databases, a delete is an append with a special value to signal the deletion.
         """
         table_file = self.get_table_file_path(table_name)
-        if not table_file.exists():
-            raise ValueError(f"Table '{table_name}' does not exist")
-
         with open(table_file, 'a', newline='') as f:
             csv_writer = csv.writer(f)
             csv_writer.writerow(list(row.values()) + [True])
 
     @require_isset_database
+    @require_exists_table
     def query(self, table_name: str, query: dict) -> QueryResult:
         """Query data from a table."""
         start_time = time.time()
         table_file = self.get_table_file_path(table_name)
-        if not table_file.exists():
-            raise ValueError(f"Table '{table_name}' does not exist")
 
         matching_rows = {}
         with open(table_file, 'r', newline='') as f:
@@ -137,39 +128,18 @@ class AppendOnlyDBMS(DBMS):
         return QueryResult(time.time() - start_time, list(matching_rows.values()))
 
     @require_isset_database
-    def pretty_query(self, table_name: str, query: dict) -> QueryResult:
-        """Pretty print a query."""
-        data = self.query(table_name, query)
-        if not data.rows:
-            print("No results found")
-            return data
-
-        headers = data.rows[0].keys()
-        header_str = ",".join(headers)
-        print("-" * len(header_str))
-        print(header_str)
-        print("-" * len(header_str))
-        for row in data.rows:
-            print(",".join(str(value) for value in row.values()))
-        print("-" * len(header_str))
-        print(f"Time: {data.time*1000:.4f} ms")
-        return data
-
-    @require_isset_database
+    @require_exists_table
     def drop_table(self, table_name: str) -> None:
         """Drop a table."""
         table_file = self.get_table_file_path(table_name)
-        if not table_file.exists():
-            raise ValueError(f"Table '{table_name}' does not exist")
 
         table_file.unlink()
 
     @require_isset_database
+    @require_exists_table
     def compact_table(self, table_name: str):
         """Compact a table."""
         table_file = self.get_table_file_path(table_name)
-        if not table_file.exists():
-            raise ValueError(f"Table '{table_name}' does not exist")
 
         compacted_data = {}
         with open(table_file, 'r', newline='') as f:
@@ -187,3 +157,23 @@ class AppendOnlyDBMS(DBMS):
             csv_writer.writerow(list(compacted_data.values())[0].keys())
             for row in compacted_data.values():
                 csv_writer.writerow(row.values())
+
+    @require_isset_database
+    @require_exists_table
+    def pretty_query(self, table_name: str, query: dict) -> QueryResult:
+        """Pretty print a query."""
+        data = self.query(table_name, query)
+        if not data.rows:
+            print("No results found")
+            return data
+
+        headers = data.rows[0].keys()
+        header_str = ",".join(headers)
+        print("-" * len(header_str))
+        print(header_str)
+        print("-" * len(header_str))
+        for row in data.rows:
+            print(",".join(str(value) for value in row.values()))
+        print("-" * len(header_str))
+        print(f"Time: {data.time*1000:.4f} ms")
+        return data

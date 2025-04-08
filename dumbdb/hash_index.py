@@ -19,6 +19,9 @@ class HashIndex:
         return self.__index__[key]
 
     def set_row_offsets(self, key: str, start_byte: int, end_byte: int):
+        """
+        Set the starting and ending offset of the row in the file for a given key.
+        """
         self.__index__[key] = (start_byte, end_byte)
 
     @classmethod

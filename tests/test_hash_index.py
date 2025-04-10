@@ -12,26 +12,29 @@ def test_hash_index_from_csv():
         csv_file_path = Path(temp_dir) / "test.csv"
         with open(csv_file_path, 'w') as f:
             writer = csv.writer(f, lineterminator='\n')
-            writer.writerow(["id", "name", "age"])
-            writer.writerow(["1", "John Smith", "20"])
-            writer.writerow(["2", "Jane Smith", "21"])
-            writer.writerow(["3", "Jim Smith", "22"])
+            writer.writerow(["id", "name", "age", "__deleted__"])
+            writer.writerow(["1", "John Smith", "20", "False"])
+            writer.writerow(["2", "Jane Smith", "21", "False"])
+            writer.writerow(["3", "Jim Smith", "22", "False"])
+
+            # update row with id 1
+            writer.writerow(["1", "John Smith", "21", "False"])
+            # delete row with id 2
+            writer.writerow(["2", "Jane Smith", "21", "True"])
+
         index = HashIndex.from_csv(csv_file_path, "id")
-        assert index.get_row_offsets("1") == (12, 28)
-        assert index.get_row_offsets("2") == (28, 44)
-        assert index.get_row_offsets("3") == (44, 59)
+        assert index.get_row_offsets("1") == (89, 111)
+        assert index.get_row_offsets("2") is None
+        assert index.get_row_offsets("3") == (68, 89)
 
         with open(csv_file_path, 'rb') as f:
             f = TextIOWrapper(f, encoding='utf-8', newline='')
             f.seek(index.get_row_offsets("1")[0])
             assert f.read(index.get_row_offsets("1")[1] -
-                          index.get_row_offsets("1")[0]) == "1,John Smith,20\n"
-            f.seek(index.get_row_offsets("2")[0])
-            assert f.read(index.get_row_offsets("2")[1] -
-                          index.get_row_offsets("2")[0]) == "2,Jane Smith,21\n"
+                          index.get_row_offsets("1")[0]) == "1,John Smith,21,False\n"
             f.seek(index.get_row_offsets("3")[0])
             assert f.read(index.get_row_offsets("3")[1] -
-                          index.get_row_offsets("3")[0]) == "3,Jim Smith,22\n"
+                          index.get_row_offsets("3")[0]) == "3,Jim Smith,22,False\n"
 
 
 def test_n_keys_property():
@@ -59,6 +62,14 @@ def test_get_row_offsets_key_error():
     index = HashIndex()
     with pytest.raises(KeyError):
         index.get_row_offsets("non_existent_key")
+
+
+def test_delete_row_offsets():
+    index = HashIndex()
+    index.set_row_offsets("key1", 0, 10)
+    assert index.get_row_offsets("key1") == (0, 10)
+    index.delete_row_offsets("key1")
+    assert index.get_row_offsets("key1") is None
 
 
 def test_from_csv_empty_file():

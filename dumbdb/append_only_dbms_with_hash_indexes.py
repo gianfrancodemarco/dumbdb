@@ -58,7 +58,7 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
     @require_exists_table
     def delete(self, table_name: str, row: dict) -> None:
         super().delete(table_name, row)
-        self.hash_indexes[table_name].delete(row["id"])
+        self.hash_indexes[table_name].delete_row_offsets(row["id"])
 
     @require_isset_database
     @require_exists_table

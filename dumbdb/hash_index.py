@@ -16,13 +16,19 @@ class HashIndex:
         """
         Get the starting and ending offset of the row in the file for a given key.
         """
-        return self.__index__[key]
+        return self.__index__.get(key)
 
     def set_row_offsets(self, key: str, start_byte: int, end_byte: int):
         """
         Set the starting and ending offset of the row in the file for a given key.
         """
         self.__index__[key] = (start_byte, end_byte)
+
+    def delete_row_offsets(self, key: str):
+        """
+        Delete a key from the hash index.
+        """
+        del self.__index__[key]
 
     @classmethod
     def from_csv(
@@ -54,6 +60,10 @@ class HashIndex:
 
                 row_values = next(csv.reader([line]))
                 row_dict = dict(zip(headers, row_values))
-                index.set_row_offsets(
-                    row_dict[index_column], start_byte, end_byte)
+
+                if row_dict["__deleted__"] == "True":
+                    index.delete_row_offsets(row_dict[index_column])
+                else:
+                    index.set_row_offsets(
+                        row_dict[index_column], start_byte, end_byte)
         return index

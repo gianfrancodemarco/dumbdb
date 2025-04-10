@@ -105,6 +105,21 @@ def test_query_by_id_uses_hash_index():
             {"id": "3", "name": "Jim", "age": "22"}]
 
 
+def test_delete_deletes_entry_from_hash_index():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMSWithHashIndexes(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("test_table", ["id", "name", "age"])
+        dbms.insert("test_table", {"id": "1", "name": "John", "age": 20})
+        assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
+        dbms.delete("test_table", {"id": "1"})
+        assert dbms.hash_indexes["test_table"].get_row_offsets("1") is None
+
+        dbms.insert("test_table", {"id": "1", "name": "John", "age": 20})
+        assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (50, 67)
+
+
 def test_query_by_id_performance():
     with tempfile.TemporaryDirectory() as temp_dir:
         dbms = AppendOnlyDBMSWithHashIndexes(root_dir=Path(temp_dir))

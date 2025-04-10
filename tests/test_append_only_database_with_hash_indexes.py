@@ -120,6 +120,36 @@ def test_delete_deletes_entry_from_hash_index():
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (50, 67)
 
 
+def test_index_after_compaction():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMSWithHashIndexes(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("test_table", ["id", "name", "age"])
+
+        dbms.insert("test_table", {"id": "1", "name": "John", "age": 20})
+        dbms.insert("test_table", {"id": "2", "name": "Jane", "age": 21})
+        dbms.insert("test_table", {"id": "3", "name": "Jim", "age": 22})
+
+        assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
+        assert dbms.hash_indexes["test_table"].get_row_offsets("2") == (42, 59)
+        assert dbms.hash_indexes["test_table"].get_row_offsets("3") == (59, 75)
+
+        dbms.delete("test_table", {"id": "2", "name": "Jane", "age": 21})
+        dbms.update("test_table", {"id": "3", "name": "Jim", "age": 23})
+
+        assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
+        assert dbms.hash_indexes["test_table"].get_row_offsets("2") is None
+        assert dbms.hash_indexes["test_table"].get_row_offsets(
+            "3") == (91, 107)
+
+        dbms.compact_table("test_table")
+
+        assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
+        assert dbms.hash_indexes["test_table"].get_row_offsets("2") is None
+        assert dbms.hash_indexes["test_table"].get_row_offsets("3") == (42, 58)
+
+
 def test_query_by_id_performance():
     with tempfile.TemporaryDirectory() as temp_dir:
         dbms = AppendOnlyDBMSWithHashIndexes(root_dir=Path(temp_dir))

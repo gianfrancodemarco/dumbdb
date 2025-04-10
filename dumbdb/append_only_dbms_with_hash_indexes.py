@@ -88,3 +88,10 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
                     return QueryResult(time() - start_time, [row_dict])
 
         return super().query(table_name, query)
+
+    @require_isset_database
+    @require_exists_table
+    def compact_table(self, table_name: str) -> None:
+        super().compact_table(table_name)
+        self.hash_indexes[table_name] = HashIndex.from_csv(
+            self.get_table_file_path(table_name), "id")

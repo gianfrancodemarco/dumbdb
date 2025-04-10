@@ -53,7 +53,7 @@ def test_startup_benchmark_append_only():
     logging.info(f"Average startup times (ms): {[t*1000 for t in avg_times]}")
 
     plot_results(
-        title="Regular DBMS Startup Time",
+        title="Regular_DBMS_Startup_Time",
         x_axis_data=DATASET_SIZES,
         y_axis=[
             {
@@ -112,7 +112,7 @@ def test_insert_benchmark_append_only():
         f"Average insert times per iteration of 100 records (ms): {[t*1000 for t in avg_times]}")
 
     plot_results(
-        title="Regular DBMS Insert Time",
+        title="Regular_DBMS_Insert_Time",
         x_axis_data=DATASET_SIZES,
         y_axis=[
             {
@@ -168,7 +168,7 @@ def test_query_benchmark_append_only():
         f"Average query times per iteration of 1 record (ms): {[t*1000 for t in avg_times]}")
 
     plot_results(
-        title="Regular DBMS Query Time",
+        title="Regular_DBMS_Query_Time",
         x_axis_data=DATASET_SIZES,
         y_axis=[
             {
@@ -203,23 +203,22 @@ def test_mixed_workload_benchmark_append_only():
 
             total_mixed_time = 0
             for i in range(NUM_ITERATIONS):
-                for j in range(100):
-                    start_time = time.time()
-                    operation_type = i % 10  # Determines operation type
-                    if operation_type < 7:  # 70% reads
-                        dbms.query("users", {"id": str((i*100) % size)})
-                    elif operation_type < 9:  # 20% inserts
-                        user = generate_user_data(size + i*100)
-                        dbms.insert("users", user)
-                    else:  # 10% updates
-                        user_id = str((i*100) % size)
-                        user = generate_user_data(int(user_id))
-                        # Increment age
-                        user["age"] = str(int(user["age"]) + 1)
-                        dbms.update("users", user)
-                    total_mixed_time += (time.time() - start_time)
+                start_time = time.time()
+                operation_type = i % 10  # Determines operation type
+                if operation_type < 7:  # 70% reads
+                    dbms.query("users", {"id": str((i*100) % size)})
+                elif operation_type < 9:  # 20% inserts
+                    user = generate_user_data(size + i*100)
+                    dbms.insert("users", user)
+                else:  # 10% updates
+                    user_id = str((i*100) % size)
+                    user = generate_user_data(int(user_id))
+                    # Increment age
+                    user["age"] = str(int(user["age"]) + 1)
+                    dbms.update("users", user)
+                total_mixed_time += (time.time() - start_time)
 
-            avg_mixed_time = total_mixed_time / (NUM_ITERATIONS * 100)
+            avg_mixed_time = total_mixed_time / (NUM_ITERATIONS)
 
             # Store results in arrays
             total_times.append(total_mixed_time)
@@ -227,23 +226,23 @@ def test_mixed_workload_benchmark_append_only():
 
             # Log both total and average times
             logging.info(
-                f"Regular DBMS total time for mixed workload of 100 operations x {NUM_ITERATIONS} iterations: {total_mixed_time*1000:.4f} ms")
+                f"Regular DBMS total time for mixed workload of 100 operations: {total_mixed_time*1000:.4f} ms")
             logging.info(
-                f"Regular DBMS average time for mixed workload of 100 operations (per iteration): {avg_mixed_time*1000:.4f} ms")
+                f"Regular DBMS average time for mixed workload of 100 operations: {avg_mixed_time*1000:.4f} ms")
 
     # Log final arrays of times
     logging.info("\n=== SUMMARY OF REGULAR DBMS MIXED WORKLOAD TIMES ===")
     logging.info(
-        f"Total mixed workload times for 100 operations x {NUM_ITERATIONS} iterations (ms): {[t*1000 for t in total_times]}")
+        f"Total mixed workload times for 100 operations: {[t*1000 for t in total_times]}")
     logging.info(
-        f"Average mixed workload times per iteration of 100 operations (ms): {[t*1000 for t in avg_times]}")
+        f"Average mixed workload times per iteration of 100 operations: {[t*1000 for t in avg_times]}")
 
     plot_results(
-        title="Regular DBMS Mixed Workload Time",
+        title="Regular_DBMS_Mixed_Workload_Time",
         x_axis_data=DATASET_SIZES,
         y_axis=[
             {
-                "label": f"Average Time per Operation [70% reads, 20% inserts, 10% updates] (averaged over {NUM_ITERATIONS} trials)",
+                "label": f"Average Time per Operation [70% reads, 20% inserts, 10% updates]",
                 "values": [t*1000 for t in avg_times]
             }
         ],

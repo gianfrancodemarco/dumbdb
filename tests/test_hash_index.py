@@ -4,7 +4,7 @@ import pytest
 from io import TextIOWrapper
 from pathlib import Path
 
-from dumbdb.hash_index import HashIndex
+from dumbdb.dbms import HashIndex
 
 
 def test_hash_index_from_csv():
@@ -24,7 +24,8 @@ def test_hash_index_from_csv():
 
         index = HashIndex.from_csv(csv_file_path, "id")
         assert index.get_row_offsets("1") == (89, 111)
-        assert index.get_row_offsets("2") is None
+        with pytest.raises(KeyError):
+            index.get_row_offsets("2")
         assert index.get_row_offsets("3") == (68, 89)
 
         with open(csv_file_path, 'rb') as f:
@@ -69,7 +70,8 @@ def test_delete_row_offsets():
     index.set_row_offsets("key1", 0, 10)
     assert index.get_row_offsets("key1") == (0, 10)
     index.delete_row_offsets("key1")
-    assert index.get_row_offsets("key1") is None
+    with pytest.raises(KeyError):
+        index.get_row_offsets("key1")
 
 
 def test_from_csv_empty_file():
@@ -88,9 +90,9 @@ def test_from_csv_custom_index_column():
         csv_file_path = Path(temp_dir) / "custom_index.csv"
         with open(csv_file_path, 'w') as f:
             writer = csv.writer(f, lineterminator='\n')
-            writer.writerow(["id", "name", "age"])
-            writer.writerow(["1", "John Smith", "20"])
-            writer.writerow(["2", "Jane Smith", "21"])
+            writer.writerow(["id", "name", "age", "__deleted__"])
+            writer.writerow(["1", "John Smith", "20", "False"])
+            writer.writerow(["2", "Jane Smith", "21", "False"])
 
         # Index by name instead of id
         index = HashIndex.from_csv(csv_file_path, "name")

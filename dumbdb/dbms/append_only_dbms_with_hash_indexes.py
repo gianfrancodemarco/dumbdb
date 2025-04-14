@@ -3,11 +3,11 @@ from dataclasses import dataclass, field
 from io import TextIOWrapper
 from time import time
 
-from .append_only_dbms import (AppendOnlyDBMS, require_exists_database,
-                               require_exists_table, require_isset_database,
+from .append_only_dbms import (AppendOnlyDBMS, QueryResult,
+                               require_exists_database, require_exists_table,
+                               require_isset_database,
                                require_not_exists_table)
 from .hash_index import HashIndex
-from .models import QueryResult
 
 
 @dataclass

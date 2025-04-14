@@ -2,8 +2,7 @@ import logging
 import tempfile
 from pathlib import Path
 
-from dumbdb.append_only_dbms_with_hash_indexes import \
-    AppendOnlyDBMSWithHashIndexes
+from dumbdb.dbms import AppendOnlyDBMSWithHashIndexes
 
 
 def test_use_db_creates_hash_indexes():

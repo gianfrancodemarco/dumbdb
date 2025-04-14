@@ -2,9 +2,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from dumbdb.append_only_dbms import AppendOnlyDBMS
-from dumbdb.append_only_dbms_with_hash_indexes import \
-    AppendOnlyDBMSWithHashIndexes
+from dumbdb.dbms import AppendOnlyDBMS, AppendOnlyDBMSWithHashIndexes
 
 # Global constants for dataset sizes to test
 DATASET_SIZES = [100, 500, 1000, 2500, 5000, 10000,

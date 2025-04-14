@@ -2,8 +2,7 @@ import logging
 import tempfile
 import time
 
-from dumbdb.append_only_dbms_with_hash_indexes import \
-    AppendOnlyDBMSWithHashIndexes
+from dumbdb.dbms import AppendOnlyDBMSWithHashIndexes
 from tests.benchmarks.common import (DATASET_SIZES, NUM_ITERATIONS,
                                      generate_user_data, populate_database,
                                      setup_database, plot_results)

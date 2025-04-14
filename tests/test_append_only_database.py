@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from dumbdb.append_only_dbms import AppendOnlyDBMS
+from dumbdb.dbms import AppendOnlyDBMS
 
 
 def test_init():

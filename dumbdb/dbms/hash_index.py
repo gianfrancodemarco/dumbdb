@@ -16,7 +16,7 @@ class HashIndex:
         """
         Get the starting and ending offset of the row in the file for a given key.
         """
-        return self.__index__.get(key)
+        return self.__index__[key]
 
     def set_row_offsets(self, key: str, start_byte: int, end_byte: int):
         """

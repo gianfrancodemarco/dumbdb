@@ -1,3 +1,5 @@
-from .append_only_dbms import AppendOnlyDBMS
+from .db_engine import Executor
+from .dbms import DBMS, AppendOnlyDBMS, AppendOnlyDBMSWithHashIndexes
 
-__all__ = ["AppendOnlyDBMS"]
+__all__ = ["Executor", "DBMS", "AppendOnlyDBMS",
+           "AppendOnlyDBMSWithHashIndexes"]

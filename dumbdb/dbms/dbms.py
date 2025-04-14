@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 
-from dumbdb.models import QueryResult
+
+@dataclass
+class QueryResult:
+    time: float
+    rows: list[dict]
 
 
 def extract_param_from_args_or_kwargs(param_name: str, args: list, kwargs: dict):

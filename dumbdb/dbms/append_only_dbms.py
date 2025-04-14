@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .dbms import DBMS, require_exists_database, require_isset_database, require_exists_table, require_not_exists_table
-from .models import QueryResult
+from .dbms import (DBMS, require_exists_database, require_exists_table,
+                   require_isset_database, require_not_exists_table, QueryResult)
 
 
 @dataclass

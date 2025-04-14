@@ -2,7 +2,7 @@ import logging
 import tempfile
 import time
 
-from dumbdb.append_only_dbms import AppendOnlyDBMS
+from dumbdb.dbms import AppendOnlyDBMS
 
 from tests.benchmarks.common import (DATASET_SIZES, NUM_ITERATIONS, generate_user_data,
                                      populate_database, setup_database, plot_results)

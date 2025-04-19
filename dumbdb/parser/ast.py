@@ -24,6 +24,22 @@ class Query(ASTNode):
 
 
 @dataclass
+class CreateDatabaseQuery(Query):
+    database: str
+
+
+@dataclass
+class UseDatabaseQuery(Query):
+    database: str
+
+
+@dataclass
+class CreateTableQuery(Query):
+    table: Table
+    columns: List[Column]
+
+
+@dataclass
 class SelectQuery(Query):
     columns: List[Column]
     table: Table

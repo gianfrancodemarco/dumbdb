@@ -1,6 +1,12 @@
 import pytest
-from dumbdb.parser.parser import BaseParser, SelectQueryParser, InsertQueryParser, Parser
-from dumbdb.parser.ast import SelectQuery, InsertQuery, Column, Table
+
+from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
+                               InsertQuery, SelectQuery, Table,
+                               UseDatabaseQuery)
+from dumbdb.parser.parser import (BaseParser, CreateDatabaseQueryParser,
+                                  CreateTableQueryParser, InsertQueryParser,
+                                  Parser, SelectQueryParser,
+                                  UseDatabaseQueryParser)
 from dumbdb.parser.tokenizer import TokenType
 
 
@@ -8,6 +14,53 @@ def test_base_parser_abstract():
     """Test that BaseParser is abstract and cannot be instantiated."""
     with pytest.raises(NotImplementedError):
         BaseParser().build_ast([])
+
+
+def test_create_database_query_parser():
+    """Test parsing a CREATE DATABASE query."""
+    parser = CreateDatabaseQueryParser()
+    tokens = [
+        (TokenType.CREATE, "CREATE"),
+        (TokenType.DATABASE, "DATABASE"),
+        (TokenType.IDENTIFIER, "my_database"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, CreateDatabaseQuery)
+    assert query.database == "my_database"
+
+
+def test_use_database_query_parser():
+    """Test parsing a USE DATABASE query."""
+    parser = UseDatabaseQueryParser()
+    tokens = [
+        (TokenType.USE, "USE"),
+        (TokenType.IDENTIFIER, "my_database"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, UseDatabaseQuery)
+    assert query.database == "my_database"
+
+
+def test_create_table_query_parser():
+    """Test parsing a CREATE TABLE query."""
+    parser = CreateTableQueryParser()
+    tokens = [
+        (TokenType.CREATE, "CREATE"),
+        (TokenType.TABLE, "TABLE"),
+        (TokenType.IDENTIFIER, "my_table"),
+        (TokenType.LPAREN, "("),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.COMMA, ","),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.RPAREN, ")"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, CreateTableQuery)
+    assert query.table == Table("my_table")
+    assert query.columns == ["id", "name"]
 
 
 def test_select_query_parser_simple():

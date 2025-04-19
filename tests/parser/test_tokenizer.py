@@ -16,6 +16,18 @@ def test_basic_select_query():
     assert tokens == expected
 
 
+def test_use_database_query():
+    tokenizer = Tokenizer()
+    sql = "USE my_database;"
+    tokens = tokenizer.tokenize(sql)
+    expected = [
+        (TokenType.USE, "USE"),
+        (TokenType.IDENTIFIER, "my_database"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    assert tokens == expected
+
+
 def test_select_with_columns():
     tokenizer = Tokenizer()
     sql = "SELECT id, name, age FROM users;"

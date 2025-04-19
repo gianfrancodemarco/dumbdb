@@ -2,6 +2,8 @@ import logging
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from dumbdb.dbms import AppendOnlyDBMSWithHashIndexes
 
 
@@ -113,7 +115,8 @@ def test_delete_deletes_entry_from_hash_index():
         dbms.insert("test_table", {"id": "1", "name": "John", "age": 20})
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
         dbms.delete("test_table", {"id": "1"})
-        assert dbms.hash_indexes["test_table"].get_row_offsets("1") is None
+        with pytest.raises(KeyError):
+            assert dbms.hash_indexes["test_table"].get_row_offsets("1")
 
         dbms.insert("test_table", {"id": "1", "name": "John", "age": 20})
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (50, 67)
@@ -138,14 +141,16 @@ def test_index_after_compaction():
         dbms.update("test_table", {"id": "3", "name": "Jim", "age": 23})
 
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
-        assert dbms.hash_indexes["test_table"].get_row_offsets("2") is None
+        with pytest.raises(KeyError):
+            assert dbms.hash_indexes["test_table"].get_row_offsets("2")
         assert dbms.hash_indexes["test_table"].get_row_offsets(
             "3") == (91, 107)
 
         dbms.compact_table("test_table")
 
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
-        assert dbms.hash_indexes["test_table"].get_row_offsets("2") is None
+        with pytest.raises(KeyError):
+            assert dbms.hash_indexes["test_table"].get_row_offsets("2")
         assert dbms.hash_indexes["test_table"].get_row_offsets("3") == (42, 58)
 
 

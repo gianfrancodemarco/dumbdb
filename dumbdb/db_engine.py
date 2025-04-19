@@ -1,10 +1,12 @@
-from dataclasses import dataclass, field
 import traceback
+from dataclasses import dataclass, field
 
 from dumbdb.dbms.append_only_dbms_with_hash_indexes import \
     AppendOnlyDBMSWithHashIndexes
 from dumbdb.dbms.dbms import DBMS
-from dumbdb.parser.ast import InsertQuery, Query, SelectQuery
+from dumbdb.parser.ast import (CreateDatabaseQuery, CreateTableQuery,
+                               InsertQuery, Query, SelectQuery,
+                               UseDatabaseQuery)
 from dumbdb.parser.parser import Parser
 from dumbdb.parser.tokenizer import Tokenizer
 
@@ -20,14 +22,29 @@ class Executor:
 
     def execute_query(self, query: Query) -> QueryResult:
         operations = {
+            CreateDatabaseQuery: self.execute_create_database_query,
+            UseDatabaseQuery: self.execute_use_database_query,
+            CreateTableQuery: self.execute_create_table_query,
             SelectQuery: self.execute_select_query,
-            InsertQuery: self.execute_insert_query,
+            InsertQuery: self.execute_insert_query
         }
 
         if type(query) not in operations:
             raise Exception(f"Query type {type(query)} not supported.")
 
         return operations[type(query)](query)
+
+    def execute_create_database_query(self, query: CreateDatabaseQuery) -> QueryResult:
+        self.dbms.create_database(query.database)
+        return QueryResult(rows=[])
+
+    def execute_use_database_query(self, query: UseDatabaseQuery) -> QueryResult:
+        self.dbms.use_database(query.database)
+        return QueryResult(rows=[])
+
+    def execute_create_table_query(self, query: CreateTableQuery) -> QueryResult:
+        self.dbms.create_table(query.table.name, query.columns)
+        return QueryResult(rows=[])
 
     def execute_select_query(self, query: SelectQuery) -> QueryResult:
         return self.dbms.query(query.table.name, {})
@@ -71,17 +88,12 @@ class DBEngine:
         """
         tokens = Tokenizer().tokenize(query)
         ast = self.parser.parse(tokens)
-        if ast is not None:
-            return self.executor.execute_query(ast)
-        else:
+        if ast is None:
             raise Exception("Invalid query.")
 
+        return self.executor.execute_query(ast)
 
-# if __name__ == "__main__":
-#     dbms = AppendOnlyDBMSWithHashIndexes()
-#     dbms.use_database("testdb")
-#     dbms.insert("my_table", {"id": 1, "name": "Alice"})
-#     dbms.insert("my_table", {"id": 2, "name": "Bob"})
-#     db_engine = DBEngine(dbms)
-#     result = db_engine.execute_query("SELECT * FROM my_table;")
-#     print(result)
+
+if __name__ == "__main__":
+    db_engine = DBEngine()
+    db_engine.cli()

@@ -12,6 +12,10 @@ class TokenType(Enum):
     - Literals: strings and numbers
     - Whitespace: spaces, tabs, newlines (these are skipped in the output)
     """
+    CREATE = "CREATE"
+    USE = "USE"
+    DATABASE = "DATABASE"
+    TABLE = "TABLE"
     SELECT = "SELECT"
     FROM = "FROM"
     INSERT = "INSERT"
@@ -52,6 +56,10 @@ class Tokenizer:
     def __init__(self):
         """Initialize the tokenizer with predefined token patterns."""
         self.token_patterns = [
+            (TokenType.CREATE,     r'CREATE\b'),
+            (TokenType.USE,        r'USE\b'),
+            (TokenType.DATABASE,   r'DATABASE\b'),
+            (TokenType.TABLE,      r'TABLE\b'),
             (TokenType.SELECT,     r'SELECT\b'),
             (TokenType.FROM,       r'FROM\b'),
             (TokenType.INSERT,     r'INSERT\b'),

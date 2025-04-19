@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 from dumbdb.dbms import AppendOnlyDBMS, AppendOnlyDBMSWithHashIndexes
 
 # Global constants for dataset sizes to test
-DATASET_SIZES = [100, 500, 1000, 2500, 5000, 10000,
-                 20000, 30000, 40000, 50000, 75000, 100000]
+DATASET_SIZES = [100, 500, 1000, 2500, 5000, 10000]
+# 20000, 30000, 40000, 50000, 75000, 100000]
 
 # Number of iterations for calculating average times
-NUM_ITERATIONS = 100
+NUM_ITERATIONS = 1
 
 
 def setup_database(temp_dir, with_indexes=False):

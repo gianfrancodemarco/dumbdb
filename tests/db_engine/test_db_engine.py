@@ -4,7 +4,9 @@ import pytest
 
 from dumbdb.db_engine import DBEngine, Executor, QueryResult
 from dumbdb.dbms.dbms import DBMS
-from dumbdb.parser.ast import Column, InsertQuery, SelectQuery, Table
+from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
+                               InsertQuery, SelectQuery, Table,
+                               UseDatabaseQuery)
 
 
 def test_query_result():
@@ -12,6 +14,44 @@ def test_query_result():
     rows = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
     result = QueryResult(rows)
     assert result.rows == rows
+
+
+def test_executor_create_database_query():
+    """Test Executor handling of CREATE DATABASE queries."""
+    mock_dbms = Mock(spec=DBMS)
+    executor = Executor(mock_dbms)
+    query = CreateDatabaseQuery(database="my_database")
+
+
+def test_executor_use_database_query():
+    """Test Executor handling of USE DATABASE queries."""
+    mock_dbms = Mock(spec=DBMS)
+    executor = Executor(mock_dbms)
+    query = UseDatabaseQuery(database="my_database")
+
+    # Execute query
+    result = executor.execute_query(query)
+
+    # Verify results
+    assert isinstance(result, QueryResult)
+    assert result.rows == []
+
+
+def test_executor_create_table_query():
+    """Test Executor handling of CREATE TABLE queries."""
+    mock_dbms = Mock(spec=DBMS)
+    executor = Executor(mock_dbms)
+    query = CreateTableQuery(table=Table("my_table"), columns=[
+                             Column("id"), Column("name")])
+
+    # Execute query
+    result = executor.execute_query(query)
+
+    # Verify results
+    assert isinstance(result, QueryResult)
+    assert result.rows == []
+    mock_dbms.create_table.assert_called_once_with("my_table", [
+        Column("id"), Column("name")])
 
 
 def test_executor_select_query():
@@ -68,6 +108,22 @@ def test_executor_unknown_query_type():
     with pytest.raises(Exception) as exc_info:
         executor.execute_query(UnknownQuery())
     assert "Query type" in str(exc_info.value)
+
+
+def test_db_engine_execute_create_database():
+    """Test DBEngine execution of CREATE DATABASE queries."""
+    # Create mock components
+    mock_dbms = Mock(spec=DBMS)
+    mock_dbms.create_database.return_value = True
+    engine = DBEngine(dbms=mock_dbms)
+
+    # Execute query
+    result = engine.execute_query("CREATE DATABASE my_database;")
+
+    # Verify results
+    assert isinstance(result, QueryResult)
+    assert result.rows == []
+    mock_dbms.create_database.assert_called_once_with("my_database")
 
 
 def test_db_engine_execute_select():

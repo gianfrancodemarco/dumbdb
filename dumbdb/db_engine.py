@@ -5,8 +5,9 @@ from dumbdb.dbms.append_only_dbms_with_hash_indexes import \
     AppendOnlyDBMSWithHashIndexes
 from dumbdb.dbms.dbms import DBMS
 from dumbdb.parser.ast import (CreateDatabaseQuery, CreateTableQuery,
-                               InsertQuery, Query, SelectQuery,
-                               UseDatabaseQuery)
+                               DropDatabaseQuery, DropTableQuery, InsertQuery,
+                               Query, SelectQuery, ShowDatabasesQuery,
+                               ShowTablesQuery, UseDatabaseQuery)
 from dumbdb.parser.parser import Parser
 from dumbdb.parser.tokenizer import Tokenizer
 
@@ -23,8 +24,12 @@ class Executor:
     def execute_query(self, query: Query) -> QueryResult:
         operations = {
             CreateDatabaseQuery: self.execute_create_database_query,
+            ShowDatabasesQuery: self.execute_show_databases_query,
+            DropDatabaseQuery: self.execute_drop_database_query,
             UseDatabaseQuery: self.execute_use_database_query,
             CreateTableQuery: self.execute_create_table_query,
+            ShowTablesQuery: self.execute_show_tables_query,
+            DropTableQuery: self.execute_drop_table_query,
             SelectQuery: self.execute_select_query,
             InsertQuery: self.execute_insert_query
         }
@@ -38,12 +43,26 @@ class Executor:
         self.dbms.create_database(query.database)
         return QueryResult(rows=[])
 
+    def execute_show_databases_query(self, query: ShowDatabasesQuery) -> QueryResult:
+        return self.dbms.show_databases()
+
+    def execute_drop_database_query(self, query: DropDatabaseQuery) -> QueryResult:
+        self.dbms.drop_database(query.database)
+        return QueryResult(rows=[])
+
     def execute_use_database_query(self, query: UseDatabaseQuery) -> QueryResult:
         self.dbms.use_database(query.database)
         return QueryResult(rows=[])
 
     def execute_create_table_query(self, query: CreateTableQuery) -> QueryResult:
         self.dbms.create_table(query.table.name, query.columns)
+        return QueryResult(rows=[])
+
+    def execute_show_tables_query(self, query: ShowTablesQuery) -> QueryResult:
+        return self.dbms.show_tables()
+
+    def execute_drop_table_query(self, query: DropTableQuery) -> QueryResult:
+        self.dbms.drop_table(query.table.name)
         return QueryResult(rows=[])
 
     def execute_select_query(self, query: SelectQuery) -> QueryResult:

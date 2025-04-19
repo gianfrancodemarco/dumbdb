@@ -13,7 +13,11 @@ class TokenType(Enum):
     - Whitespace: spaces, tabs, newlines (these are skipped in the output)
     """
     CREATE = "CREATE"
+    DROP = "DROP"
     USE = "USE"
+    SHOW = "SHOW"
+    DATABASES = "DATABASES"
+    TABLES = "TABLES"
     DATABASE = "DATABASE"
     TABLE = "TABLE"
     SELECT = "SELECT"
@@ -21,6 +25,7 @@ class TokenType(Enum):
     INSERT = "INSERT"
     INTO = "INTO"
     VALUES = "VALUES"
+    DELETE = "DELETE"
     STAR = "*"
     COMMA = ","
     LPAREN = "("
@@ -57,7 +62,11 @@ class Tokenizer:
         """Initialize the tokenizer with predefined token patterns."""
         self.token_patterns = [
             (TokenType.CREATE,     r'CREATE\b'),
+            (TokenType.DROP,       r'DROP\b'),
             (TokenType.USE,        r'USE\b'),
+            (TokenType.SHOW,       r'SHOW\b'),
+            (TokenType.DATABASES,  r'DATABASES\b'),
+            (TokenType.TABLES,     r'TABLES\b'),
             (TokenType.DATABASE,   r'DATABASE\b'),
             (TokenType.TABLE,      r'TABLE\b'),
             (TokenType.SELECT,     r'SELECT\b'),
@@ -65,6 +74,7 @@ class Tokenizer:
             (TokenType.INSERT,     r'INSERT\b'),
             (TokenType.INTO,       r'INTO\b'),
             (TokenType.VALUES,     r'VALUES\b'),
+            (TokenType.DELETE,     r'DELETE\b'),
             (TokenType.STAR,       r'\*'),
             (TokenType.COMMA,      r','),
             (TokenType.LPAREN,     r'\('),

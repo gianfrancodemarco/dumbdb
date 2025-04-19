@@ -1,11 +1,12 @@
 import csv
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from .dbms import (DBMS, require_exists_database, require_exists_table,
-                   require_isset_database, require_not_exists_table, QueryResult)
+from .dbms import (DBMS, QueryResult, require_exists_database,
+                   require_exists_table, require_isset_database,
+                   require_not_exists_table)
 
 
 @dataclass
@@ -38,15 +39,22 @@ class AppendOnlyDBMS(DBMS):
         tables_dir = self.get_tables_dir(db_name)
         tables_dir.mkdir(parents=True)
 
+    def show_databases(self) -> list[str]:
+        return [f.stem for f in self.root_dir.iterdir() if f.is_dir()]
+
+    def drop_database(self, db_name: str) -> None:
+        db_dir = self.get_database_dir(db_name)
+        if not db_dir.exists():
+            raise ValueError(f"Database '{db_name}' does not exist")
+
+        shutil.rmtree(db_dir)
+
     @require_exists_database
     def use_database(self, db_name: str) -> None:
         self.current_database = db_name
 
     def get_table_file_path(self, table_name: str) -> Path:
         return self.tables_dir / f"{table_name}.csv"
-
-    def show_databases(self) -> list[str]:
-        return [f.stem for f in self.root_dir.iterdir() if f.is_dir()]
 
     @require_isset_database
     def show_tables(self) -> list[str]:

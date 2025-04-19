@@ -94,6 +94,14 @@ class DBMS(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def show_databases(self) -> list[str]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def drop_database(db_name: str) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
     def use_database(db_name: str) -> None:
         raise NotImplementedError()
 
@@ -103,6 +111,10 @@ class DBMS(ABC):
 
     @abstractmethod
     def create_table(table_name: str) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def show_tables(self) -> list[str]:
         raise NotImplementedError()
 
     @abstractmethod

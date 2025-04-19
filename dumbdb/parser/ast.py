@@ -29,6 +29,16 @@ class CreateDatabaseQuery(Query):
 
 
 @dataclass
+class ShowDatabasesQuery(Query):
+    pass
+
+
+@dataclass
+class DropDatabaseQuery(Query):
+    database: str
+
+
+@dataclass
 class UseDatabaseQuery(Query):
     database: str
 
@@ -37,6 +47,16 @@ class UseDatabaseQuery(Query):
 class CreateTableQuery(Query):
     table: Table
     columns: List[Column]
+
+
+@dataclass
+class ShowTablesQuery(Query):
+    pass
+
+
+@dataclass
+class DropTableQuery(Query):
+    table: Table
 
 
 @dataclass

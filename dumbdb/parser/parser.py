@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
-                               InsertQuery, Query, SelectQuery, Table,
-                               UseDatabaseQuery)
+                               DropDatabaseQuery, DropTableQuery, InsertQuery,
+                               Query, SelectQuery, ShowDatabasesQuery,
+                               ShowTablesQuery, Table, UseDatabaseQuery)
 from dumbdb.parser.grammar import LiteralRule, Multiple, Or, ParseResult
 from dumbdb.parser.tokenizer import TokenType
 
@@ -48,6 +49,41 @@ class CreateDatabaseQueryParser(BaseParser):
 
 
 @dataclass
+class ShowDatabasesQueryParser(BaseParser):
+    """
+    Grammar:
+    SHOW DATABASES;
+    """
+
+    grammar = [
+        LiteralRule(TokenType.SHOW),
+        LiteralRule(TokenType.DATABASES),
+        LiteralRule(TokenType.SEMICOLON),
+    ]
+
+    def build_ast(self, values: List[Any]) -> ShowDatabasesQuery:
+        return ShowDatabasesQuery()
+
+
+@dataclass
+class DropDatabaseQueryParser(BaseParser):
+    """
+    Grammar:
+    DROP DATABASE <database_name>;
+    """
+
+    grammar = [
+        LiteralRule(TokenType.DROP),
+        LiteralRule(TokenType.DATABASE),
+        LiteralRule(TokenType.IDENTIFIER),
+        LiteralRule(TokenType.SEMICOLON),
+    ]
+
+    def build_ast(self, values: List[Any]) -> DropDatabaseQuery:
+        return DropDatabaseQuery(database=values[2])
+
+
+@dataclass
 class UseDatabaseQueryParser(BaseParser):
     """
     Grammar:
@@ -83,6 +119,41 @@ class CreateTableQueryParser(BaseParser):
 
     def build_ast(self, values: List[Any]) -> CreateTableQuery:
         return CreateTableQuery(table=Table(values[2]), columns=values[4])
+
+
+@dataclass
+class ShowTablesQueryParser(BaseParser):
+    """
+    Grammar:
+    SHOW TABLES;
+    """
+
+    grammar = [
+        LiteralRule(TokenType.SHOW),
+        LiteralRule(TokenType.TABLES),
+        LiteralRule(TokenType.SEMICOLON),
+    ]
+
+    def build_ast(self, values: List[Any]) -> ShowTablesQuery:
+        return ShowTablesQuery()
+
+
+@dataclass
+class DropTableQueryParser(BaseParser):
+    """
+    Grammar:
+    DROP TABLE <table_name>;
+    """
+
+    grammar = [
+        LiteralRule(TokenType.DROP),
+        LiteralRule(TokenType.TABLE),
+        LiteralRule(TokenType.IDENTIFIER),
+        LiteralRule(TokenType.SEMICOLON),
+    ]
+
+    def build_ast(self, values: List[Any]) -> DropTableQuery:
+        return DropTableQuery(table=Table(values[2]))
 
 
 @dataclass
@@ -139,16 +210,46 @@ class InsertQueryParser(BaseParser):
         )
 
 
+# @dataclass
+# class DeleteQueryParser(BaseParser):
+#     """
+#     Grammar:
+#     DELETE FROM <table_name> WHERE <condition>;
+#     """
+
+#     grammar = [
+#         LiteralRule(TokenType.DELETE),
+#         LiteralRule(TokenType.FROM),
+#         LiteralRule(TokenType.IDENTIFIER),
+#         LiteralRule(TokenType.WHERE),
+#     ]
+
+#     def build_ast(self, values: List[Any]) -> DeleteQuery:
+#         return DeleteQuery(
+#             table=Table(values[2]),
+#             where_clause=values[4]
+#         )
+
+
 @dataclass
 class Parser:
     parsers: ClassVar[Dict[TokenType, Any]] = {
-        TokenType.USE: UseDatabaseQueryParser(),
         TokenType.CREATE: {
             TokenType.DATABASE: CreateDatabaseQueryParser(),
             TokenType.TABLE: CreateTableQueryParser()
         },
+        TokenType.SHOW: {
+            TokenType.DATABASES: ShowDatabasesQueryParser(),
+            TokenType.TABLES: ShowTablesQueryParser()
+        },
+        TokenType.USE: UseDatabaseQueryParser(),
         TokenType.SELECT: SelectQueryParser(),
         TokenType.INSERT: InsertQueryParser(),
+        # TokenType.DELETE: DeleteQueryParser(),
+        TokenType.DROP: {
+            TokenType.DATABASE: DropDatabaseQueryParser(),
+            TokenType.TABLE: DropTableQueryParser()
+        }
     }
 
     def select_parser(

@@ -15,27 +15,30 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
     hash_indexes: dict[str, HashIndex] = field(default_factory=dict)
 
     @require_exists_database
-    def use_database(self, db_name: str) -> None:
+    def use_database(self, db_name: str) -> QueryResult:
         super().use_database(db_name)
-        for table in self.show_tables():
+        for table in self.show_tables().rows:
             self.hash_indexes[table] = HashIndex.from_csv(
                 self.get_table_file_path(table), "id")
+        return QueryResult(status="success")
 
     @require_isset_database
     @require_not_exists_table
-    def create_table(self, table_name: str, headers: list[str] = None) -> None:
+    def create_table(self, table_name: str, headers: list[str] = None) -> QueryResult:
         super().create_table(table_name, headers)
         self.hash_indexes[table_name] = HashIndex()
+        return QueryResult(status="success")
 
     @require_isset_database
     @require_exists_table
-    def drop_table(self, table_name: str) -> None:
+    def drop_table(self, table_name: str) -> QueryResult:
         super().drop_table(table_name)
         del self.hash_indexes[table_name]
+        return QueryResult(status="success")
 
     @require_isset_database
     @require_exists_table
-    def insert(self, table_name: str, row: dict) -> None:
+    def insert(self, table_name: str, row: dict) -> QueryResult:
         """Insert a new row into a table."""
         table_file = self.get_table_file_path(table_name)
 
@@ -47,18 +50,21 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
             self.hash_indexes[table_name].set_row_offsets(
                 row["id"], start_byte, end_byte)
 
-    @require_isset_database
-    @require_exists_table
-    def update(self, table_name: str, row: dict) -> None:
-        # Since the super class implementation of update is just an insert,
-        # we only need to implement the index on the insert.
-        super().update(table_name, row)
+        return QueryResult(status="success")
 
     @require_isset_database
     @require_exists_table
-    def delete(self, table_name: str, row: dict) -> None:
+    def update(self, table_name: str, row: dict) -> QueryResult:
+        # Since the super class implementation of update is just an insert,
+        # we only need to implement the index on the insert.
+        return super().update(table_name, row)
+
+    @require_isset_database
+    @require_exists_table
+    def delete(self, table_name: str, row: dict) -> QueryResult:
         super().delete(table_name, row)
         self.hash_indexes[table_name].delete_row_offsets(row["id"])
+        return QueryResult(status="success")
 
     @require_isset_database
     @require_exists_table
@@ -85,13 +91,18 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
                     row_values = row.strip().split(",")
                     row_dict = dict(zip(headers, row_values))
                     row_dict.pop("__deleted__")
-                    return QueryResult(time() - start_time, [row_dict])
+                    return QueryResult(
+                        status="success",
+                        time=time() - start_time,
+                        rows=[row_dict]
+                    )
 
         return super().query(table_name, query)
 
     @require_isset_database
     @require_exists_table
-    def compact_table(self, table_name: str) -> None:
+    def compact_table(self, table_name: str) -> QueryResult:
         super().compact_table(table_name)
         self.hash_indexes[table_name] = HashIndex.from_csv(
             self.get_table_file_path(table_name), "id")
+        return QueryResult(status="success")

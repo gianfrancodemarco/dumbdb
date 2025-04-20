@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from textwrap import dedent
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
@@ -12,6 +13,7 @@ from dumbdb.parser.tokenizer import TokenType
 @dataclass
 class BaseParser:
     grammar: ClassVar[List[Any]]
+    grammar_help: ClassVar[str] = ""
 
     def parse(self, tokens: List[Tuple[str, str]], pos: int = 0) -> Optional[ParseResult]:
         values = []
@@ -20,7 +22,12 @@ class BaseParser:
             result = rule.parse(tokens, current)
             if result is None:
                 raise Exception(
-                    f"Invalid syntax; Unexpected token: {tokens[current][1]} at position {current}.")
+                    dedent(f"""
+Invalid syntax; Unexpected token: {tokens[current][1]} at position {current}.
+
+Expected one of the following syntaxes:
+{self.grammar_help}
+                    """))
             value, current = result
             values.append(value)
 
@@ -32,10 +39,9 @@ class BaseParser:
 
 @dataclass
 class CreateDatabaseQueryParser(BaseParser):
-    """
-    Grammar:
-    CREATE DATABASE <database_name>;
-    """
+    grammar_help = dedent("""
+        CREATE DATABASE <database_name>;
+    """)
 
     grammar = [
         LiteralRule(TokenType.CREATE),
@@ -50,10 +56,9 @@ class CreateDatabaseQueryParser(BaseParser):
 
 @dataclass
 class ShowDatabasesQueryParser(BaseParser):
-    """
-    Grammar:
-    SHOW DATABASES;
-    """
+    grammar_help = dedent("""
+        SHOW DATABASES;
+    """)
 
     grammar = [
         LiteralRule(TokenType.SHOW),
@@ -67,10 +72,9 @@ class ShowDatabasesQueryParser(BaseParser):
 
 @dataclass
 class DropDatabaseQueryParser(BaseParser):
-    """
-    Grammar:
-    DROP DATABASE <database_name>;
-    """
+    grammar_help = dedent("""
+        DROP DATABASE <database_name>;
+    """)
 
     grammar = [
         LiteralRule(TokenType.DROP),
@@ -85,10 +89,9 @@ class DropDatabaseQueryParser(BaseParser):
 
 @dataclass
 class UseDatabaseQueryParser(BaseParser):
-    """
-    Grammar:
-    USE <database_name>;
-    """
+    grammar_help = dedent("""
+        USE <database_name>;
+    """)
 
     grammar = [
         LiteralRule(TokenType.USE),
@@ -102,10 +105,9 @@ class UseDatabaseQueryParser(BaseParser):
 
 @dataclass
 class CreateTableQueryParser(BaseParser):
-    """
-    Grammar:
-    CREATE TABLE <table_name> (<column_name>+);
-    """
+    grammar_help = dedent("""
+        CREATE TABLE <table_name> ( <column_name> +);
+    """)
 
     grammar = [
         LiteralRule(TokenType.CREATE),
@@ -123,10 +125,9 @@ class CreateTableQueryParser(BaseParser):
 
 @dataclass
 class ShowTablesQueryParser(BaseParser):
-    """
-    Grammar:
-    SHOW TABLES;
-    """
+    grammar_help = dedent("""
+        SHOW TABLES;
+    """)
 
     grammar = [
         LiteralRule(TokenType.SHOW),
@@ -140,10 +141,9 @@ class ShowTablesQueryParser(BaseParser):
 
 @dataclass
 class DropTableQueryParser(BaseParser):
-    """
-    Grammar:
-    DROP TABLE <table_name>;
-    """
+    grammar_help = dedent("""
+        DROP TABLE <table_name>;
+    """)
 
     grammar = [
         LiteralRule(TokenType.DROP),
@@ -158,10 +158,9 @@ class DropTableQueryParser(BaseParser):
 
 @dataclass
 class SelectQueryParser(BaseParser):
-    """
-    Grammar:
-    SELECT [* | <column_name>+] FROM <table_name>;
-    """
+    grammar_help = dedent("""
+        SELECT[* | <column_name> +] FROM <table_name>;
+    """)
 
     grammar = [
         LiteralRule(TokenType.SELECT),
@@ -182,10 +181,9 @@ class SelectQueryParser(BaseParser):
 
 @dataclass
 class InsertQueryParser(BaseParser):
-    """
-    Grammar:
-    INSERT INTO <table_name> (<column_name>+) VALUES (<value>+);
-    """
+    grammar_help = dedent("""
+        INSERT INTO <table_name> ( <column_name> +) VALUES ( <value> +);
+    """)
 
     grammar = [
         LiteralRule(TokenType.INSERT),
@@ -252,6 +250,21 @@ class Parser:
         }
     }
 
+    def get_valid_syntax_help(
+        self,
+        current_parsers: Dict[TokenType, Any] | BaseParser
+    ) -> str:
+        """
+        Return a string of the valid syntax for the current parsers.
+
+        If current_parsers is a single parser, the valid syntax help is the grammar help of the parser.
+        If current_parsers is a dictionary of parsers, recursively call this function to get the valid syntax help of the parsers in the dictionary.
+        """
+        if isinstance(current_parsers, dict):
+            return "\n".join([self.get_valid_syntax_help(parser) for parser in current_parsers.values()])
+
+        return current_parsers.grammar_help.strip()
+
     def select_parser(
         self,
         current_parsers: Dict[TokenType, Any],
@@ -269,13 +282,23 @@ class Parser:
 
         if current_token_idx >= len(tokens):
             raise Exception(
-                f"Invalid syntax; Unexpected end of input at position {current_token_idx}. Expected one of {current_parsers.keys()}.")
+                dedent(f"""
+Invalid syntax; Unexpected end of input at position {current_token_idx}.
+
+Expected one of the following syntaxes:
+{self.get_valid_syntax_help(current_parsers)}
+                """))
 
         selector = tokens[current_token_idx][0]
 
         if selector not in current_parsers:
             raise Exception(
-                f"Invalid syntax; Unexpected token: {tokens[current_token_idx][1]} at position {current_token_idx}.")
+                dedent(f"""
+Invalid syntax; Unexpected token: {tokens[current_token_idx][1]} at position {current_token_idx}.
+
+Expected one of the following syntaxes:
+{self.get_valid_syntax_help(current_parsers)}
+                """))
 
         selected_parsers = current_parsers[selector]
         if isinstance(selected_parsers, dict):

@@ -56,7 +56,7 @@ class Executor:
         return self.dbms.drop_table(query.table.name)
 
     def execute_select_query(self, query: SelectQuery) -> QueryResult:
-        return self.dbms.query(query.table.name, {})
+        return self.dbms.query(query.table.name, {}, query.where_clause)
 
     def execute_insert_query(self, query: InsertQuery) -> QueryResult:
         return self.dbms.insert(query.table.name, query.row)

@@ -150,5 +150,5 @@ class DBMS(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def query(self, table_name: str, query: dict) -> QueryResult:
+    def query(self, table_name: str, query: dict, where_clause=None) -> QueryResult:
         raise NotImplementedError()

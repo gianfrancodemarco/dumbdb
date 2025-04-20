@@ -6,7 +6,7 @@ from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
                                DropDatabaseQuery, DropTableQuery, InsertQuery,
                                Query, SelectQuery, ShowDatabasesQuery,
                                ShowTablesQuery, Table, UseDatabaseQuery)
-from dumbdb.parser.grammar import LiteralRule, Multiple, Or, ParseResult
+from dumbdb.parser.grammar import LiteralRule, Multiple, Or, ParseResult, WhereClauseRule
 from dumbdb.parser.tokenizer import TokenType
 
 
@@ -159,7 +159,8 @@ class DropTableQueryParser(BaseParser):
 @dataclass
 class SelectQueryParser(BaseParser):
     grammar_help = dedent("""
-        SELECT[* | <column_name> +] FROM <table_name>;
+        SELECT[* | <column_name> +] FROM <table_name> [WHERE <condition>];
+        <condition> = <column_name> = <value> [AND <condition>]
     """)
 
     grammar = [
@@ -168,14 +169,14 @@ class SelectQueryParser(BaseParser):
             LiteralRule(TokenType.IDENTIFIER))),
         LiteralRule(TokenType.FROM),
         LiteralRule(TokenType.IDENTIFIER),
-        LiteralRule(TokenType.SEMICOLON),
+        Or(LiteralRule(TokenType.SEMICOLON), WhereClauseRule()),
     ]
 
     def build_ast(self, values: List[Any]) -> SelectQuery:
         return SelectQuery(
             columns=[Column(values[1])],
             table=Table(values[3]),
-            where_clause=None
+            where_clause=values[4] if len(values) > 4 else None
         )
 
 

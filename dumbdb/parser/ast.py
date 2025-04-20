@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import List, Optional
 
 
 class ASTNode:
@@ -15,6 +15,24 @@ class Column(ASTNode):
 @dataclass
 class Table(ASTNode):
     name: str
+
+
+@dataclass
+class WhereCondition(ASTNode):
+    """Base class for all WHERE conditions."""
+    pass
+
+
+@dataclass
+class EqualsCondition(WhereCondition):
+    column: Column
+    value: str
+
+
+@dataclass
+class AndCondition(WhereCondition):
+    left: WhereCondition
+    right: WhereCondition
 
 
 @dataclass
@@ -63,7 +81,7 @@ class DropTableQuery(Query):
 class SelectQuery(Query):
     columns: List[Column]
     table: Table
-    where_clause: Optional[Any]
+    where_clause: Optional[WhereCondition] = None
 
 
 @dataclass

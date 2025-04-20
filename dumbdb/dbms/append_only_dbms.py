@@ -122,7 +122,7 @@ class AppendOnlyDBMS(DBMS):
 
     @require_isset_database
     @require_exists_table
-    def query(self, table_name: str, query: dict) -> QueryResult:
+    def query(self, table_name: str, query: dict, where_clause=None) -> QueryResult:
         """Query data from a table."""
         start_time = time.time()
         table_file = self.get_table_file_path(table_name)
@@ -138,6 +138,11 @@ class AppendOnlyDBMS(DBMS):
         matching_rows = {k: v for k,
                          v in matching_rows.items() if v['__deleted__'] == 'False'}
 
+        # Apply WHERE clause if present
+        if where_clause is not None:
+            matching_rows = {k: v for k, v in matching_rows.items()
+                             if self.evaluate_where_clause(v, where_clause)}
+
         # Remove the __deleted__ column
         for row in matching_rows.values():
             del row['__deleted__']
@@ -147,6 +152,15 @@ class AppendOnlyDBMS(DBMS):
             time=time.time() - start_time,
             rows=list(matching_rows.values())
         )
+
+    def evaluate_where_clause(self, row: dict, where_clause) -> bool:
+        """Evaluate a WHERE clause against a row."""
+        if isinstance(where_clause, EqualsCondition):
+            return str(row[where_clause.column.name]) == where_clause.value.strip("'")
+        elif isinstance(where_clause, AndCondition):
+            return (self.evaluate_where_clause(row, where_clause.left) and
+                    self.evaluate_where_clause(row, where_clause.right))
+        return False
 
     @require_isset_database
     @require_exists_table

@@ -26,6 +26,9 @@ class TokenType(Enum):
     INTO = "INTO"
     VALUES = "VALUES"
     DELETE = "DELETE"
+    WHERE = "WHERE"
+    AND = "AND"
+    EQUALS = "="
     STAR = "*"
     COMMA = ","
     LPAREN = "("
@@ -75,6 +78,9 @@ class Tokenizer:
             (TokenType.INTO,       r'INTO\b'),
             (TokenType.VALUES,     r'VALUES\b'),
             (TokenType.DELETE,     r'DELETE\b'),
+            (TokenType.WHERE,      r'WHERE\b'),
+            (TokenType.AND,        r'AND\b'),
+            (TokenType.EQUALS,     r'='),
             (TokenType.STAR,       r'\*'),
             (TokenType.COMMA,      r','),
             (TokenType.LPAREN,     r'\('),
@@ -123,7 +129,8 @@ class Tokenizer:
                         # Normalize keywords to upper case
                         if token_type in (TokenType.SELECT, TokenType.FROM,
                                           TokenType.INSERT, TokenType.INTO,
-                                          TokenType.VALUES):
+                                          TokenType.VALUES, TokenType.WHERE,
+                                          TokenType.AND):
                             tokens.append((token_type, text.upper()))
                         else:
                             tokens.append((token_type, text))

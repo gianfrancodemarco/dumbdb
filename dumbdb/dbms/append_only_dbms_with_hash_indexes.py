@@ -8,6 +8,7 @@ from .append_only_dbms import (AppendOnlyDBMS, QueryResult,
                                require_isset_database,
                                require_not_exists_table)
 from .hash_index import HashIndex
+from .conditions import EqualsCondition, AndCondition
 
 
 @dataclass
@@ -68,7 +69,7 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
 
     @require_isset_database
     @require_exists_table
-    def query(self, table_name: str, query: dict) -> QueryResult:
+    def query(self, table_name: str, query: dict, where_clause=None) -> QueryResult:
         """
         If the search is by id, we can use the hash index to find the row.
         Otherwise, we need to search the entire table.
@@ -91,13 +92,28 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
                     row_values = row.strip().split(",")
                     row_dict = dict(zip(headers, row_values))
                     row_dict.pop("__deleted__")
+
+                    # Apply WHERE clause if present
+                    if where_clause is not None:
+                        if not self.evaluate_where_clause(row_dict, where_clause):
+                            return QueryResult(status="success", time=time() - start_time, rows=[])
+
                     return QueryResult(
                         status="success",
                         time=time() - start_time,
                         rows=[row_dict]
                     )
 
-        return super().query(table_name, query)
+        return super().query(table_name, query, where_clause)
+
+    def evaluate_where_clause(self, row: dict, where_clause) -> bool:
+        """Evaluate a WHERE clause against a row."""
+        if isinstance(where_clause, EqualsCondition):
+            return str(row[where_clause.column.name]) == where_clause.value.strip("'")
+        elif isinstance(where_clause, AndCondition):
+            return (self.evaluate_where_clause(row, where_clause.left) and
+                    self.evaluate_where_clause(row, where_clause.right))
+        return False
 
     @require_isset_database
     @require_exists_table

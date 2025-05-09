@@ -56,16 +56,26 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
 
     @require_isset_database
     @require_exists_table
-    def update(self, table_name: str, row: dict) -> QueryResult:
+    def update(self, table_name: str, set_clause: dict, where_clause: WhereCondition = None) -> QueryResult:
         # Since the super class implementation of update is just an insert,
         # we only need to implement the index on the insert.
-        return super().update(table_name, row)
+        return super().update(table_name, set_clause, where_clause)
 
     @require_isset_database
     @require_exists_table
-    def delete(self, table_name: str, row: dict) -> QueryResult:
-        super().delete(table_name, row)
-        self.hash_indexes[table_name].delete_row_offsets(row["id"])
+    def delete(self, table_name: str, where_clause: WhereCondition = None) -> QueryResult:
+        """
+        Delete rows from a table that match the where clause.
+        We need to update the hash index after the deletion.
+        """
+        # First find all rows that will be deleted
+        matching_rows = self.query(table_name, where_clause).rows
+
+        # Update the hash index
+        for row in matching_rows:
+            super().delete(table_name, where_clause)
+            self.hash_indexes[table_name].delete_row_offsets(row["id"])
+
         return QueryResult()
 
     @require_isset_database

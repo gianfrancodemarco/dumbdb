@@ -7,7 +7,8 @@ from pathlib import Path
 from dumbdb.dbms.dbms import (DBMS, QueryResult, require_exists_database,
                               require_exists_table, require_isset_database,
                               require_not_exists_table)
-from dumbdb.parser.ast import AndCondition, Column, EqualsCondition
+from dumbdb.parser.ast import (AndCondition, Column, EqualsCondition,
+                               WhereCondition)
 
 
 @dataclass
@@ -97,30 +98,52 @@ class AppendOnlyDBMS(DBMS):
 
     @require_isset_database
     @require_exists_table
-    def update(self, table_name: str, row: dict) -> QueryResult:
+    def update(self, table_name: str, set_clause: dict, where_clause: WhereCondition = None) -> QueryResult:
         """
-        Update a row in a table.
+        Update rows in a table that match the where clause.
         For append-only databases, an update is just an insert.
-        Before inserting, we check if the row already exists. If not, we throw an error.
+        We first find all matching rows, then update each one.
         """
-        query_result = self.query(
-            table_name, EqualsCondition(Column("id"), row["id"]))
-        if not query_result.rows:
-            raise ValueError(f"Row with id {row['id']} does not exist")
+        # In append only databases, we cannot update the id field since it is the primary key.
+        if "id" in set_clause:
+            raise ValueError(
+                "Cannot update the id field in append-only databases")
 
-        return self.insert(table_name, row)
+        # Find all rows that match the where clause
+        matching_rows = self.query(table_name, where_clause).rows
+
+        if not matching_rows:
+            return QueryResult()  # No rows to update
+
+        # Update each matching row
+        for row in matching_rows:
+            # Create new row with updated values
+            updated_row = row.copy()
+            updated_row.update(set_clause)
+            self.insert(table_name, updated_row)
+
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
-    def delete(self, table_name: str, row: dict) -> QueryResult:
+    def delete(self, table_name: str, where_clause: WhereCondition = None) -> QueryResult:
         """
-        Delete a row from a table.
+        Delete rows from a table that match the where clause.
         For append-only databases, a delete is an append with a special value to signal the deletion.
         """
-        table_file = self.get_table_file_path(table_name)
-        with open(table_file, 'a', newline='') as f:
+        # Find all rows that match the where clause
+        matching_rows = self.query(table_name, where_clause).rows
+
+        if not matching_rows:
+            return QueryResult()  # No rows to delete
+
+        # Delete each matching row
+        with open(self.get_table_file_path(table_name), 'a', newline='') as f:
             csv_writer = csv.writer(f)
-            csv_writer.writerow(list(row.values()) + [True])
+            for row in matching_rows:
+                csv_writer.writerow(list(row.values()) + [True])
+
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table

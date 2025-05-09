@@ -81,7 +81,8 @@ def test_update_modifies_entry_in_hash_indexes():
 
         assert dbms.hash_indexes["test_table"].n_keys == 1
 
-        dbms.update("test_table", {"id": "1", "name": "John", "age": 21})
+        dbms.update("test_table", {"age": 21},
+                    EqualsCondition(Column("id"), "1"))
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (42, 59)
 
         assert dbms.hash_indexes["test_table"].n_keys == 1
@@ -115,12 +116,12 @@ def test_delete_deletes_entry_from_hash_index():
         dbms.create_table("test_table", ["id", "name", "age"])
         dbms.insert("test_table", {"id": "1", "name": "John", "age": 20})
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
-        dbms.delete("test_table", {"id": "1"})
+        dbms.delete("test_table", EqualsCondition(Column("id"), "1"))
         with pytest.raises(KeyError):
             assert dbms.hash_indexes["test_table"].get_row_offsets("1")
 
         dbms.insert("test_table", {"id": "1", "name": "John", "age": 20})
-        assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (50, 67)
+        assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (58, 75)
 
 
 def test_index_after_compaction():
@@ -138,8 +139,9 @@ def test_index_after_compaction():
         assert dbms.hash_indexes["test_table"].get_row_offsets("2") == (42, 59)
         assert dbms.hash_indexes["test_table"].get_row_offsets("3") == (59, 75)
 
-        dbms.delete("test_table", {"id": "2", "name": "Jane", "age": 21})
-        dbms.update("test_table", {"id": "3", "name": "Jim", "age": 23})
+        dbms.delete("test_table", EqualsCondition(Column("id"), "2"))
+        dbms.update("test_table", {"age": 23},
+                    EqualsCondition(Column("id"), "3"))
 
         assert dbms.hash_indexes["test_table"].get_row_offsets("1") == (25, 42)
         with pytest.raises(KeyError):
@@ -271,7 +273,8 @@ def test_query_with_where_condition_after_update():
         dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
 
         # Update a row
-        dbms.update("users", {"id": "1", "name": "John", "age": "22"})
+        dbms.update("users", {"age": "22"},
+                    EqualsCondition(Column("id"), "1"))
 
         # Test WHERE condition after update
         result = dbms.query("users", EqualsCondition(Column("age"), "22"))
@@ -298,7 +301,7 @@ def test_query_with_where_condition_after_delete():
         dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
 
         # Delete a row
-        dbms.delete("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.delete("users", EqualsCondition(Column("id"), "1"))
 
         # Test WHERE condition after delete
         result = dbms.query("users", EqualsCondition(Column("id"), "1"))
@@ -310,3 +313,82 @@ def test_query_with_where_condition_after_delete():
         assert result.rows[0]["id"] == "2"
         assert result.rows[0]["name"] == "Jane"
         assert result.rows[0]["age"] == "21"
+
+
+def test_update_with_where_condition():
+    """Test updating rows with WHERE conditions in hash-indexed database."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMSWithHashIndexes(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "20"})
+        dbms.insert("users", {"id": "3", "name": "Jim", "age": "25"})
+
+        # Update all users with age 20
+        dbms.update("users", {"age": "21"},
+                    EqualsCondition(Column("age"), "20"))
+
+        # Verify the updates using hash index
+        result = dbms.query("users", EqualsCondition(Column("id"), "1"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["age"] == "21"
+
+        result = dbms.query("users", EqualsCondition(Column("id"), "2"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["age"] == "21"
+
+        # Verify unchanged row using hash index
+        result = dbms.query("users", EqualsCondition(Column("id"), "3"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["age"] == "25"
+
+
+def test_delete_with_where_condition():
+    """Test deleting rows with WHERE conditions in hash-indexed database."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMSWithHashIndexes(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "20"})
+        dbms.insert("users", {"id": "3", "name": "Jim", "age": "25"})
+
+        # Delete all users with age 20
+        dbms.delete("users", EqualsCondition(Column("age"), "20"))
+
+        # Verify the deletes using hash index
+        result = dbms.query("users", EqualsCondition(Column("id"), "1"))
+        assert len(result.rows) == 0
+
+        result = dbms.query("users", EqualsCondition(Column("id"), "2"))
+        assert len(result.rows) == 0
+
+        # Verify unchanged row using hash index
+        result = dbms.query("users", EqualsCondition(Column("id"), "3"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["age"] == "25"
+
+
+def test_update_with_id_change():
+    """Test updating the id field with WHERE conditions in hash-indexed database."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMSWithHashIndexes(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "20"})
+
+        # Update id of users with age 20
+        with pytest.raises(ValueError):
+            dbms.update("users", {"id": "100"},
+                        EqualsCondition(Column("age"), "20"))

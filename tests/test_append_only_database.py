@@ -97,7 +97,8 @@ def test_update():
         dbms.use_database("test_db")
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        dbms.update("users", {"id": "1", "name": "John Smith", "age": "21"})
+        dbms.update("users", {"age": "21"},
+                    EqualsCondition(Column("id"), "1"))
         assert dbms.get_table_file_path("users").exists()
 
         with open(dbms.get_table_file_path("users"), "r") as f:
@@ -116,7 +117,8 @@ def test_delete():
         dbms.use_database("test_db")
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
-        dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.delete("users", where_clause=(
+            EqualsCondition(Column("id"), "1")))
         assert dbms.get_table_file_path("users").exists()
 
         with open(dbms.get_table_file_path("users"), "r") as f:
@@ -151,7 +153,8 @@ def test_query_after_update():
         dbms.use_database("test_db")
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
-        dbms.update("users", {"id": "1", "name": "John Smith", "age": "21"})
+        dbms.update("users", {"age": "21"},
+                    EqualsCondition(Column("id"), "1"))
         query_result = dbms.query("users", EqualsCondition(Column("id"), "1"))
         assert len(query_result.rows) == 1
         assert query_result.rows[0]["id"] == "1"
@@ -166,7 +169,8 @@ def test_query_after_delete():
         dbms.use_database("test_db")
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
-        dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.delete("users", where_clause=(
+            EqualsCondition(Column("id"), "1")))
         query_result = dbms.query("users", EqualsCondition(Column("id"), "1"))
         assert len(query_result.rows) == 0
 
@@ -178,7 +182,8 @@ def test_query_after_delete_and_reinsert():
         dbms.use_database("test_db")
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
-        dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
+        dbms.delete("users", where_clause=(
+            EqualsCondition(Column("id"), "1")))
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 22})
         query_result = dbms.query("users", EqualsCondition(Column("id"), "1"))
         assert len(query_result.rows) == 1
@@ -341,7 +346,8 @@ def test_query_with_where_condition_after_update():
         dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
 
         # Update a row
-        dbms.update("users", {"id": "1", "name": "John", "age": "22"})
+        dbms.update("users", {"age": "22"},
+                    EqualsCondition(Column("id"), "1"))
 
         # Test WHERE condition after update
         result = dbms.query("users", EqualsCondition(Column("age"), "22"))
@@ -368,7 +374,8 @@ def test_query_with_where_condition_after_delete():
         dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
 
         # Delete a row
-        dbms.delete("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.delete("users", where_clause=(
+            EqualsCondition(Column("id"), "1")))
 
         # Test WHERE condition after delete
         result = dbms.query("users", EqualsCondition(Column("id"), "1"))
@@ -380,3 +387,96 @@ def test_query_with_where_condition_after_delete():
         assert result.rows[0]["id"] == "2"
         assert result.rows[0]["name"] == "Jane"
         assert result.rows[0]["age"] == "21"
+
+
+def test_update_with_where_condition():
+    """Test updating rows with WHERE conditions."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "20"})
+        dbms.insert("users", {"id": "3", "name": "Jim", "age": "25"})
+
+        # Update all users with age 20
+        dbms.update("users", {"age": "21"}, where_clause=(
+            EqualsCondition(Column("age"), "20")))
+
+        # Verify the updates
+        result = dbms.query("users", EqualsCondition(Column("age"), "21"))
+        assert len(result.rows) == 2
+        assert any(row["name"] == "John" for row in result.rows)
+        assert any(row["name"] == "Jane" for row in result.rows)
+
+        # Verify unchanged row
+        result = dbms.query("users", EqualsCondition(Column("age"), "25"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["name"] == "Jim"
+
+
+def test_delete_with_where_condition():
+    """Test deleting rows with WHERE conditions."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "20"})
+        dbms.insert("users", {"id": "3", "name": "Jim", "age": "25"})
+
+        # Delete all users with age 20
+        dbms.delete("users", where_clause=(
+            EqualsCondition(Column("age"), "20")))
+
+        # Verify the deletes
+        result = dbms.query("users", EqualsCondition(Column("age"), "20"))
+        assert len(result.rows) == 0
+
+        # Verify unchanged row
+        result = dbms.query("users", EqualsCondition(Column("age"), "25"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["name"] == "Jim"
+
+
+def test_update_with_complex_where_condition():
+    """Test updating rows with complex WHERE conditions using AND."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "John", "age": "25"})
+        dbms.insert("users", {"id": "3", "name": "Jane", "age": "20"})
+
+        # Update users named John who are 20 years old
+        where_clause = AndCondition(
+            EqualsCondition(Column("name"), "John"),
+            EqualsCondition(Column("age"), "20")
+        )
+        dbms.update("users", {"age": "21"}, where_clause)
+
+        # Verify the update
+        result = dbms.query("users", EqualsCondition(Column("age"), "21"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["name"] == "John"
+        assert result.rows[0]["id"] == "1"
+
+        # Verify unchanged rows
+        result = dbms.query("users", EqualsCondition(Column("age"), "20"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["name"] == "Jane"
+
+        result = dbms.query("users", EqualsCondition(Column("age"), "25"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["name"] == "John"
+        assert result.rows[0]["id"] == "2"

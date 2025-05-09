@@ -34,36 +34,36 @@ class AppendOnlyDBMS(DBMS):
     def create_database(self, db_name: str) -> QueryResult:
         db_dir = self.get_database_dir(db_name)
         if db_dir.exists():
-            return QueryResult(status="error", message=f"Database '{db_name}' already exists")
+            raise ValueError(f"Database '{db_name}' already exists")
 
         tables_dir = self.get_tables_dir(db_name)
         tables_dir.mkdir(parents=True)
 
-        return QueryResult(status="success")
+        return QueryResult()
 
     def show_databases(self) -> QueryResult:
-        return QueryResult(status="success", rows=[f.stem for f in self.root_dir.iterdir() if f.is_dir()])
+        return QueryResult(rows=[f.stem for f in self.root_dir.iterdir() if f.is_dir()])
 
     def drop_database(self, db_name: str) -> QueryResult:
         db_dir = self.get_database_dir(db_name)
         if not db_dir.exists():
-            return QueryResult(status="error", message=f"Database '{db_name}' does not exist")
+            raise ValueError(f"Database '{db_name}' does not exist")
 
         shutil.rmtree(db_dir)
 
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_exists_database
     def use_database(self, db_name: str) -> QueryResult:
         self.current_database = db_name
-        return QueryResult(status="success")
+        return QueryResult()
 
     def get_table_file_path(self, table_name: str) -> Path:
         return self.tables_dir / f"{table_name}.csv"
 
     @require_isset_database
     def show_tables(self) -> QueryResult:
-        return QueryResult(status="success", rows=[f.stem for f in self.get_tables_dir(self.current_database).iterdir() if f.is_file()])
+        return QueryResult(rows=[f.stem for f in self.get_tables_dir(self.current_database).iterdir() if f.is_file()])
 
     @require_isset_database
     @require_not_exists_table
@@ -81,7 +81,7 @@ class AppendOnlyDBMS(DBMS):
             csv_writer = csv.writer(f)
             csv_writer.writerow(headers)
 
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
@@ -92,7 +92,7 @@ class AppendOnlyDBMS(DBMS):
             csv_writer = csv.writer(f)
             csv_writer.writerow(list(row.values()) + [False])
 
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
@@ -104,7 +104,7 @@ class AppendOnlyDBMS(DBMS):
         """
         query_result = self.query(table_name, {"id": row["id"]})
         if not query_result.rows:
-            return QueryResult(status="error", message=f"Row with id {row['id']} does not exist")
+            raise ValueError(f"Row with id {row['id']} does not exist")
 
         return self.insert(table_name, row)
 
@@ -148,7 +148,7 @@ class AppendOnlyDBMS(DBMS):
             del row['__deleted__']
 
         return QueryResult(
-            status="success",
+
             time=time.time() - start_time,
             rows=list(matching_rows.values())
         )
@@ -168,7 +168,7 @@ class AppendOnlyDBMS(DBMS):
         """Drop a table."""
         table_file = self.get_table_file_path(table_name)
         table_file.unlink()
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
@@ -193,7 +193,7 @@ class AppendOnlyDBMS(DBMS):
             for row in compacted_data.values():
                 csv_writer.writerow(row.values())
 
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table

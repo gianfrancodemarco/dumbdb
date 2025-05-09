@@ -101,6 +101,18 @@ class DBEngine:
 
         return self.executor.execute_query(ast)
 
+    def execute_script(self, script: str) -> QueryResult:
+        """
+        Execute a script passed in as a string.
+        Single queries are separated by a semicolon.
+        We keep the semicolon at the end of each query so that the parser works
+        correctly.
+        """
+        queries = [query.strip() + ";" for query in script.split(";")
+                   if query.strip()]
+        for query in queries:
+            self.execute_query(query)
+
 
 if __name__ == "__main__":
     db_engine = DBEngine()

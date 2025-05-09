@@ -176,7 +176,7 @@ class SelectQueryParser(BaseParser):
         return SelectQuery(
             columns=[Column(values[1])],
             table=Table(values[3]),
-            where_clause=values[4] if len(values) > 4 else None
+            where_clause=values[4] if values[4] != TokenType.SEMICOLON.value else None
         )
 
 

@@ -11,6 +11,12 @@ class ASTNode:
 class Column(ASTNode):
     name: str
 
+    def __str__(self):
+        if not isinstance(self.name, str) and self.name != "*":
+            raise ValueError(
+                f"Column name must be a string or *, got {self.name}")
+        return self.name
+
 
 @dataclass
 class Table(ASTNode):

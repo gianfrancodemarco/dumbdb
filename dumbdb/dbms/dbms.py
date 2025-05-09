@@ -27,7 +27,8 @@ def require_isset_database(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self.current_database is None:
-            return QueryResult(status="error", message=f"No database selected. Use 'USE <database_name>' to select a database first.")
+            raise ValueError(
+                f"No database selected. Use 'USE <database_name>' to select a database first.")
         return func(self, *args, **kwargs)
     return wrapper
 
@@ -43,7 +44,8 @@ def require_exists_database(func):
         db_name = extract_param_from_args_or_kwargs("db_name", args, kwargs)
 
         if db_name not in self.show_databases().rows:
-            return QueryResult(status="error", message=f"Database '{db_name}' does not exist")
+            raise ValueError(
+                f"Database '{db_name}' does not exist")
         return func(self, *args, **kwargs)
     return wrapper
 
@@ -80,23 +82,16 @@ def require_not_exists_table(func):
 
 @dataclass
 class QueryResult:
-    status: str = field(default="success")
     rows: list[dict] = field(default_factory=list)
     time: float = field(default=0.0)
     message: str = field(default="")
 
     def __str__(self):
-        if self.status == "success":
-            return dedent(f"""
+        return dedent(f"""
             OK
             rows={self.rows}
             time={self.time}
             message={self.message}
-            """)
-        else:
-            return dedent(f"""
-            ERROR
-            {self.message}
             """)
 
 

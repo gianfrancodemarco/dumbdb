@@ -4,3 +4,16 @@
 data
 
 poetry.lock
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest
+.pytest_cache/

@@ -27,4 +27,4 @@ jobs:
         
     - name: Run tests with coverage
       run: |
-        python -m pytest --ignore="**/benchmarks/**" --ignore="**/benchmark_*.py" --ignore="**/*_benchmark.py" --cov --cov-config=.coveragerc --cov-report=term --cov-report=html 
+        python -m pytest 

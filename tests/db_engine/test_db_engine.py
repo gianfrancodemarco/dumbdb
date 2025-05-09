@@ -9,7 +9,8 @@ from dumbdb.dbms.append_only_dbms import AppendOnlyDBMS
 from dumbdb.dbms.dbms import DBMS
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
                                InsertQuery, SelectQuery, Table,
-                               UseDatabaseQuery, UpdateQuery, EqualsCondition)
+                               UseDatabaseQuery, UpdateQuery, EqualsCondition,
+                               DeleteQuery)
 
 
 def test_query_result():
@@ -128,6 +129,26 @@ def test_executor_update_query():
     assert result.rows == []
     mock_dbms.update.assert_called_once_with(
         "users", {"name": "'John'", "age": "25"}, None)
+
+
+def test_executor_delete_query():
+    """Test Executor handling of DELETE queries."""
+    mock_dbms = Mock(spec=DBMS)
+    mock_dbms.delete.return_value = QueryResult()
+    executor = Executor(mock_dbms)
+    query = DeleteQuery(
+        table=Table("users"),
+        where_clause=EqualsCondition(Column("id"), "1")
+    )
+
+    # Execute query
+    result = executor.execute_delete_query(query)
+
+    # Verify results
+    assert isinstance(result, QueryResult)
+    assert result.rows == []
+    mock_dbms.delete.assert_called_once_with(
+        "users", EqualsCondition(Column("id"), "1"))
 
 
 def test_executor_unknown_query_type():
@@ -446,3 +467,69 @@ def test_db_engine_cli_error_handling():
         assert mock_parser.parse.call_count == 1
         mock_print.assert_called()
         mock_traceback.assert_called_once()
+
+
+def test_db_engine_execute_delete():
+    """Test DBEngine execution of DELETE queries."""
+    mock_dbms = Mock(spec=DBMS)
+    mock_parser = Mock()
+    mock_tokenizer = Mock()
+
+    # Mock the tokenizer and parser
+    with patch('dumbdb.db_engine.Tokenizer') as mock_tokenizer_class:
+        mock_tokenizer_class.return_value = mock_tokenizer
+        mock_tokenizer.tokenize.return_value = [
+            'DELETE', 'FROM', 'users', 'WHERE', 'id', '=', '1', ';'
+        ]
+        mock_parser.parse.return_value = DeleteQuery(
+            table=Table("users"),
+            where_clause=EqualsCondition(Column("id"), "1")
+        )
+
+        # Create engine with mocked components
+        engine = DBEngine(dbms=mock_dbms, parser=mock_parser)
+        mock_dbms.delete.return_value = QueryResult()
+
+        # Execute query
+        result = engine.execute_query("DELETE FROM users WHERE id = 1;")
+
+        # Verify results
+        assert isinstance(result, QueryResult)
+        assert result.rows == []
+        mock_tokenizer.tokenize.assert_called_once_with(
+            "DELETE FROM users WHERE id = 1;")
+        mock_parser.parse.assert_called_once()
+        mock_dbms.delete.assert_called_once_with(
+            "users", EqualsCondition(Column("id"), "1"))
+
+
+def test_db_engine_execute_delete_without_where():
+    """Test DBEngine execution of DELETE queries without WHERE clause."""
+    mock_dbms = Mock(spec=DBMS)
+    mock_parser = Mock()
+    mock_tokenizer = Mock()
+
+    # Mock the tokenizer and parser
+    with patch('dumbdb.db_engine.Tokenizer') as mock_tokenizer_class:
+        mock_tokenizer_class.return_value = mock_tokenizer
+        mock_tokenizer.tokenize.return_value = [
+            'DELETE', 'FROM', 'users', ';'
+        ]
+        mock_parser.parse.return_value = DeleteQuery(
+            table=Table("users"),
+            where_clause=None
+        )
+
+        # Create engine with mocked components
+        engine = DBEngine(dbms=mock_dbms, parser=mock_parser)
+        mock_dbms.delete.return_value = QueryResult()
+
+        # Execute query
+        result = engine.execute_query("DELETE FROM users;")
+
+        # Verify results
+        assert isinstance(result, QueryResult)
+        assert result.rows == []
+        mock_tokenizer.tokenize.assert_called_once_with("DELETE FROM users;")
+        mock_parser.parse.assert_called_once()
+        mock_dbms.delete.assert_called_once_with("users", None)

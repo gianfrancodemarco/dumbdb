@@ -3,11 +3,12 @@ from textwrap import dedent
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
-                               DropDatabaseQuery, DropTableQuery, InsertQuery,
-                               Query, SelectQuery, ShowDatabasesQuery,
-                               ShowTablesQuery, Table, UseDatabaseQuery,
-                               UpdateQuery)
-from dumbdb.parser.grammar import LiteralRule, Multiple, Or, ParseResult, WhereClauseRule
+                               DeleteQuery, DropDatabaseQuery, DropTableQuery,
+                               InsertQuery, Query, SelectQuery,
+                               ShowDatabasesQuery, ShowTablesQuery, Table,
+                               UpdateQuery, UseDatabaseQuery)
+from dumbdb.parser.grammar import (LiteralRule, Multiple, Or, ParseResult,
+                                   WhereClauseRule)
 from dumbdb.parser.tokenizer import TokenType
 
 
@@ -248,25 +249,37 @@ class UpdateQueryParser(BaseParser):
         )
 
 
-# @dataclass
-# class DeleteQueryParser(BaseParser):
-#     """
-#     Grammar:
-#     DELETE FROM <table_name> WHERE <condition>;
-#     """
+@dataclass
+class DeleteQueryParser(BaseParser):
+    """Parser for DELETE queries.
 
-#     grammar = [
-#         LiteralRule(TokenType.DELETE),
-#         LiteralRule(TokenType.FROM),
-#         LiteralRule(TokenType.IDENTIFIER),
-#         LiteralRule(TokenType.WHERE),
-#     ]
+    Grammar:
+        DELETE FROM table_name [WHERE condition];
+    """
+    grammar_help = """
+    DELETE FROM table_name [WHERE condition];
+    Example: DELETE FROM users WHERE id = 1;
+    """
+    grammar = [
+        LiteralRule(TokenType.DELETE),
+        LiteralRule(TokenType.FROM),
+        LiteralRule(TokenType.IDENTIFIER),
+        Or(LiteralRule(TokenType.SEMICOLON), WhereClauseRule())
+    ]
 
-#     def build_ast(self, values: List[Any]) -> DeleteQuery:
-#         return DeleteQuery(
-#             table=Table(values[2]),
-#             where_clause=values[4]
-#         )
+    def build_ast(self, parsed_values: list) -> DeleteQuery:
+        """Build the AST for a DELETE query.
+
+        Args:
+            parsed_values: List of parsed values from the grammar.
+
+        Returns:
+            A DeleteQuery object.
+        """
+        return DeleteQuery(
+            table=Table(parsed_values[2]),
+            where_clause=parsed_values[3] if parsed_values[3] != TokenType.SEMICOLON.value else None
+        )
 
 
 @dataclass
@@ -284,7 +297,7 @@ class Parser:
         TokenType.SELECT: SelectQueryParser(),
         TokenType.INSERT: InsertQueryParser(),
         TokenType.UPDATE: UpdateQueryParser(),
-        # TokenType.DELETE: DeleteQueryParser(),
+        TokenType.DELETE: DeleteQueryParser(),
         TokenType.DROP: {
             TokenType.DATABASE: DropDatabaseQueryParser(),
             TokenType.TABLE: DropTableQueryParser()

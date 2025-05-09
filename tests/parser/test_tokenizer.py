@@ -249,3 +249,53 @@ def test_update_query_case_insensitive():
         (TokenType.SEMICOLON, ";")
     ]
     assert tokens == expected
+
+
+def test_delete_query():
+    """Test tokenizing a DELETE query."""
+    tokenizer = Tokenizer()
+    sql = "DELETE FROM users WHERE id = 1;"
+    tokens = tokenizer.tokenize(sql)
+    expected = [
+        (TokenType.DELETE, "DELETE"),
+        (TokenType.FROM, "FROM"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    assert tokens == expected
+
+
+def test_delete_query_simple():
+    """Test tokenizing a simple DELETE query without WHERE clause."""
+    tokenizer = Tokenizer()
+    sql = "DELETE FROM users;"
+    tokens = tokenizer.tokenize(sql)
+    expected = [
+        (TokenType.DELETE, "DELETE"),
+        (TokenType.FROM, "FROM"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    assert tokens == expected
+
+
+def test_delete_query_case_insensitive():
+    """Test tokenizing a DELETE query with case-insensitive keywords."""
+    tokenizer = Tokenizer()
+    sql = "delete from users where id = 1;"
+    tokens = tokenizer.tokenize(sql)
+    expected = [
+        (TokenType.DELETE, "DELETE"),
+        (TokenType.FROM, "FROM"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    assert tokens == expected

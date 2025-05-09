@@ -111,3 +111,14 @@ class UpdateQuery(Query):
     table: Table
     set_clause: dict[str, str]  # column -> value mapping
     where_clause: Optional[WhereCondition] = None
+
+
+@dataclass
+class DeleteQuery:
+    """Represents a DELETE query in the AST.
+
+    Example:
+        DELETE FROM users WHERE id = 1;
+    """
+    table: Table
+    where_clause: Optional[WhereCondition] = None

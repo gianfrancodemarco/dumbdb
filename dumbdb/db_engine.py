@@ -7,7 +7,8 @@ from dumbdb.dbms.dbms import DBMS, QueryResult
 from dumbdb.parser.ast import (CreateDatabaseQuery, CreateTableQuery,
                                DropDatabaseQuery, DropTableQuery, InsertQuery,
                                Query, SelectQuery, ShowDatabasesQuery,
-                               ShowTablesQuery, UseDatabaseQuery, UpdateQuery)
+                               ShowTablesQuery, UseDatabaseQuery, UpdateQuery,
+                               DeleteQuery)
 from dumbdb.parser.parser import Parser
 from dumbdb.parser.tokenizer import Tokenizer
 
@@ -27,7 +28,8 @@ class Executor:
             DropTableQuery: self.execute_drop_table_query,
             SelectQuery: self.execute_select_query,
             InsertQuery: self.execute_insert_query,
-            UpdateQuery: self.execute_update_query
+            UpdateQuery: self.execute_update_query,
+            DeleteQuery: self.execute_delete_query
         }
 
         if type(query) not in operations:
@@ -64,6 +66,17 @@ class Executor:
 
     def execute_update_query(self, query: UpdateQuery) -> QueryResult:
         return self.dbms.update(query.table.name, query.set_clause, query.where_clause)
+
+    def execute_delete_query(self, query: DeleteQuery) -> QueryResult:
+        """Execute a DELETE query.
+
+        Args:
+            query: The DeleteQuery to execute.
+
+        Returns:
+            A QueryResult object.
+        """
+        return self.dbms.delete(query.table.name, query.where_clause)
 
 
 @dataclass

@@ -2,11 +2,13 @@ import pytest
 
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
                                InsertQuery, SelectQuery, Table,
-                               UseDatabaseQuery, UpdateQuery, EqualsCondition)
+                               UseDatabaseQuery, UpdateQuery, EqualsCondition,
+                               DeleteQuery)
 from dumbdb.parser.parser import (BaseParser, CreateDatabaseQueryParser,
                                   CreateTableQueryParser, InsertQueryParser,
                                   Parser, SelectQueryParser,
-                                  UseDatabaseQueryParser, UpdateQueryParser)
+                                  UseDatabaseQueryParser, UpdateQueryParser,
+                                  DeleteQueryParser)
 from dumbdb.parser.tokenizer import TokenType
 
 
@@ -338,6 +340,78 @@ def test_parser_update_query():
     assert isinstance(query, UpdateQuery)
     assert query.table == Table("users")
     assert query.set_clause == {"name": "'John'"}
+    assert isinstance(query.where_clause, EqualsCondition)
+    assert query.where_clause.column == Column("id")
+    assert query.where_clause.value == "1"
+
+
+def test_delete_query_parser_simple():
+    """Test parsing a simple DELETE query without WHERE clause."""
+    parser = DeleteQueryParser()
+    tokens = [
+        (TokenType.DELETE, "DELETE"),
+        (TokenType.FROM, "FROM"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, DeleteQuery)
+    assert query.table == Table("users")
+    assert query.where_clause is None
+
+
+def test_delete_query_parser_with_where():
+    """Test parsing a DELETE query with WHERE clause."""
+    parser = DeleteQueryParser()
+    tokens = [
+        (TokenType.DELETE, "DELETE"),
+        (TokenType.FROM, "FROM"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, DeleteQuery)
+    assert query.table == Table("users")
+    assert isinstance(query.where_clause, EqualsCondition)
+    assert query.where_clause.column == Column("id")
+    assert query.where_clause.value == "1"
+
+
+def test_delete_query_parser_invalid_syntax():
+    """Test handling of invalid DELETE query syntax."""
+    parser = DeleteQueryParser()
+    tokens = [
+        (TokenType.DELETE, "DELETE"),
+        (TokenType.FROM, "FROM"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.WHERE, "WHERE"),  # Missing condition
+        (TokenType.SEMICOLON, ";")
+    ]
+    with pytest.raises(Exception) as exc_info:
+        parser.parse(tokens)
+    assert "Invalid syntax" in str(exc_info.value)
+
+
+def test_parser_delete_query():
+    """Test the main Parser class with a DELETE query."""
+    parser = Parser()
+    tokens = [
+        (TokenType.DELETE, "DELETE"),
+        (TokenType.FROM, "FROM"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, DeleteQuery)
+    assert query.table == Table("users")
     assert isinstance(query.where_clause, EqualsCondition)
     assert query.where_clause.column == Column("id")
     assert query.where_clause.value == "1"

@@ -3,12 +3,13 @@ from dataclasses import dataclass, field
 from io import TextIOWrapper
 from time import time
 
+from dumbdb.parser.ast import EqualsCondition, WhereCondition
+
 from .append_only_dbms import (AppendOnlyDBMS, QueryResult,
                                require_exists_database, require_exists_table,
                                require_isset_database,
                                require_not_exists_table)
 from .hash_index import HashIndex
-from .conditions import EqualsCondition, AndCondition
 
 
 @dataclass
@@ -21,21 +22,21 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
         for table in self.show_tables().rows:
             self.hash_indexes[table] = HashIndex.from_csv(
                 self.get_table_file_path(table), "id")
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_not_exists_table
     def create_table(self, table_name: str, headers: list[str] = None) -> QueryResult:
         super().create_table(table_name, headers)
         self.hash_indexes[table_name] = HashIndex()
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
     def drop_table(self, table_name: str) -> QueryResult:
         super().drop_table(table_name)
         del self.hash_indexes[table_name]
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
@@ -51,7 +52,7 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
             self.hash_indexes[table_name].set_row_offsets(
                 row["id"], start_byte, end_byte)
 
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
@@ -65,19 +66,23 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
     def delete(self, table_name: str, row: dict) -> QueryResult:
         super().delete(table_name, row)
         self.hash_indexes[table_name].delete_row_offsets(row["id"])
-        return QueryResult(status="success")
+        return QueryResult()
 
     @require_isset_database
     @require_exists_table
-    def query(self, table_name: str, query: dict, where_clause=None) -> QueryResult:
+    def query(self, table_name: str, where_clause: WhereCondition = None) -> QueryResult:
         """
         If the search is by id, we can use the hash index to find the row.
         Otherwise, we need to search the entire table.
         """
-        if "id" in query:
+        if isinstance(where_clause, EqualsCondition) and where_clause.column.name == "id":
             start_time = time()
-            start_byte, end_byte = self.hash_indexes[table_name].get_row_offsets(
-                query["id"])
+
+            try:
+                start_byte, end_byte = self.hash_indexes[table_name].get_row_offsets(
+                    where_clause.value)
+            except KeyError:
+                return QueryResult(time=time() - start_time, rows=[])
 
             with open(self.get_table_file_path(table_name), 'rb') as f:
                 f = TextIOWrapper(f, encoding='utf-8', newline='')
@@ -96,24 +101,14 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
                     # Apply WHERE clause if present
                     if where_clause is not None:
                         if not self.evaluate_where_clause(row_dict, where_clause):
-                            return QueryResult(status="success", time=time() - start_time, rows=[])
+                            return QueryResult(time=time() - start_time, rows=[])
 
                     return QueryResult(
-                        status="success",
                         time=time() - start_time,
                         rows=[row_dict]
                     )
 
-        return super().query(table_name, query, where_clause)
-
-    def evaluate_where_clause(self, row: dict, where_clause) -> bool:
-        """Evaluate a WHERE clause against a row."""
-        if isinstance(where_clause, EqualsCondition):
-            return str(row[where_clause.column.name]) == where_clause.value.strip("'")
-        elif isinstance(where_clause, AndCondition):
-            return (self.evaluate_where_clause(row, where_clause.left) and
-                    self.evaluate_where_clause(row, where_clause.right))
-        return False
+        return super().query(table_name, where_clause)
 
     @require_isset_database
     @require_exists_table
@@ -121,4 +116,4 @@ class AppendOnlyDBMSWithHashIndexes(AppendOnlyDBMS):
         super().compact_table(table_name)
         self.hash_indexes[table_name] = HashIndex.from_csv(
             self.get_table_file_path(table_name), "id")
-        return QueryResult(status="success")
+        return QueryResult()

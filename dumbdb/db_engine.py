@@ -133,4 +133,13 @@ class DBEngine:
 
 if __name__ == "__main__":
     db_engine = DBEngine()
+    # db_engine.execute_script("""
+    #     CREATE DATABASE test_db;
+    #     USE test_db;
+    #     CREATE TABLE users (id, name, age);
+    #     INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30);
+    #     INSERT INTO users (id, name, age) VALUES (2, 'Bob', 25);
+    #     INSERT INTO users (id, name, age) VALUES (3, 'Charlie', 35);
+    #     SELECT * FROM users;
+    # """)
     db_engine.cli()

@@ -7,6 +7,7 @@ from pathlib import Path
 from dumbdb.dbms.dbms import (DBMS, QueryResult, require_exists_database,
                               require_exists_table, require_isset_database,
                               require_not_exists_table)
+from dumbdb.parser.ast import AndCondition, Column, EqualsCondition
 
 
 @dataclass
@@ -102,7 +103,8 @@ class AppendOnlyDBMS(DBMS):
         For append-only databases, an update is just an insert.
         Before inserting, we check if the row already exists. If not, we throw an error.
         """
-        query_result = self.query(table_name, {"id": row["id"]})
+        query_result = self.query(
+            table_name, EqualsCondition(Column("id"), row["id"]))
         if not query_result.rows:
             raise ValueError(f"Row with id {row['id']} does not exist")
 
@@ -122,7 +124,7 @@ class AppendOnlyDBMS(DBMS):
 
     @require_isset_database
     @require_exists_table
-    def query(self, table_name: str, query: dict, where_clause=None) -> QueryResult:
+    def query(self, table_name: str, where_clause=None) -> QueryResult:
         """Query data from a table."""
         start_time = time.time()
         table_file = self.get_table_file_path(table_name)
@@ -131,8 +133,7 @@ class AppendOnlyDBMS(DBMS):
         with open(table_file, 'r', newline='') as f:
             csv_reader = csv.DictReader(f)
             for row in csv_reader:
-                if all(row[key] == query[key] for key in query):
-                    matching_rows[row['id']] = row
+                matching_rows[row['id']] = row
 
         # Remove all rows for which the last line is a delete
         matching_rows = {k: v for k,

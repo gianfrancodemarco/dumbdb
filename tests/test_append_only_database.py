@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from dumbdb.dbms import AppendOnlyDBMS
+from dumbdb.parser.ast import Column, EqualsCondition, AndCondition
 
 
 def test_init():
@@ -135,7 +136,8 @@ def test_query():
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
         dbms.insert("users", {"id": 2, "name": "Jane Smith", "age": 21})
-        query_result = dbms.query("users", {"id": "1"})
+        query_result = dbms.query(
+            "users", EqualsCondition(Column("id"), "1"))
         assert len(query_result.rows) == 1
         assert query_result.rows[0]["id"] == "1"
         assert query_result.rows[0]["name"] == "John Smith"
@@ -150,7 +152,7 @@ def test_query_after_update():
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": "1", "name": "John Smith", "age": "20"})
         dbms.update("users", {"id": "1", "name": "John Smith", "age": "21"})
-        query_result = dbms.query("users", {"id": "1"})
+        query_result = dbms.query("users", EqualsCondition(Column("id"), "1"))
         assert len(query_result.rows) == 1
         assert query_result.rows[0]["id"] == "1"
         assert query_result.rows[0]["name"] == "John Smith"
@@ -165,7 +167,7 @@ def test_query_after_delete():
         dbms.create_table("users", ["id", "name", "age"])
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
         dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
-        query_result = dbms.query("users", {"id": "1"})
+        query_result = dbms.query("users", EqualsCondition(Column("id"), "1"))
         assert len(query_result.rows) == 0
 
 
@@ -178,7 +180,7 @@ def test_query_after_delete_and_reinsert():
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 20})
         dbms.delete("users", {"id": 1, "name": "John Smith", "age": 20})
         dbms.insert("users", {"id": 1, "name": "John Smith", "age": 22})
-        query_result = dbms.query("users", {"id": "1"})
+        query_result = dbms.query("users", EqualsCondition(Column("id"), "1"))
         assert len(query_result.rows) == 1
         assert query_result.rows[0]["id"] == "1"
         assert query_result.rows[0]["name"] == "John Smith"
@@ -207,13 +209,14 @@ def test_append_only_database():
         for i in range(num_rows):
             dbms.insert("users", {"id": 1, "name": "John Doe", "age": i})
             if i % 10000 == 0:
-                query_result = dbms.query("users", {"id": 1})
+                query_result = dbms.query(
+                    "users", EqualsCondition(Column("id"), "1"))
                 logging.info(
                     f"Execution time with {i+1} rows: {query_result.time*1000: .4f} ms")
 
         dbms.compact_table("users")
 
-        query_result = dbms.query("users", {"id": 1})
+        query_result = dbms.query("users", EqualsCondition(Column("id"), "1"))
         logging.info(
             f"Execution time with after compacting rows: {query_result.time*1000:.4f} ms")
 
@@ -224,11 +227,13 @@ def test_append_only_database():
         for i in range(num_rows):
             dbms.insert("users", {"id": i, "name": f"John Doe {i}", "age": i})
             if i % 10000 == 0:
-                query_result = dbms.query("users", {"id": 1})
+                query_result = dbms.query(
+                    "users", EqualsCondition(Column("id"), "1"))
                 logging.info(
                     f"Execution time with {i+1} rows: {query_result.time*1000: .4f} ms")
 
-        query_result = dbms.query("users", {"id": 1})
+        query_result = dbms.query(
+            "users", EqualsCondition(Column("id"), "1"))
         logging.info(
             f"Execution time with after compacting rows: {query_result.time*1000:.4f} ms")
 
@@ -238,3 +243,140 @@ def test_use_database_with_nonexistent_database():
         dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
         with pytest.raises(ValueError, match="Database 'nonexistent_db' does not exist"):
             dbms.use_database("nonexistent_db")
+
+
+def test_query_with_where_condition():
+    """Test querying with WHERE conditions."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
+        dbms.insert("users", {"id": "3", "name": "John", "age": "22"})
+
+        # Test WHERE condition on id
+        result = dbms.query("users", EqualsCondition(Column("id"), "1"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["id"] == "1"
+        assert result.rows[0]["name"] == "John"
+        assert result.rows[0]["age"] == "20"
+
+        # Test WHERE condition on name
+        result = dbms.query("users", EqualsCondition(Column("name"), "'John'"))
+        assert len(result.rows) == 2
+        assert all(row["name"] == "John" for row in result.rows)
+
+        # Test WHERE condition on age
+        result = dbms.query("users", EqualsCondition(Column("age"), "21"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["age"] == "21"
+        assert result.rows[0]["name"] == "Jane"
+
+
+def test_query_with_multiple_where_conditions():
+    """Test querying with multiple WHERE conditions."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "John", "age": "21"})
+        dbms.insert("users", {"id": "3", "name": "Jane", "age": "20"})
+
+        # Test multiple WHERE conditions
+        where_clause = AndCondition(
+            EqualsCondition(Column("name"), "'John'"),
+            EqualsCondition(Column("age"), "20")
+        )
+        result = dbms.query("users", where_clause)
+        assert len(result.rows) == 1
+        assert result.rows[0]["id"] == "1"
+        assert result.rows[0]["name"] == "John"
+        assert result.rows[0]["age"] == "20"
+
+
+def test_query_with_nonexistent_where_condition():
+    """Test querying with WHERE conditions that don't match any rows."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
+
+        # Test WHERE condition that doesn't match any rows
+        result = dbms.query("users", EqualsCondition(
+            Column("name"), "'Alice'"))
+        assert len(result.rows) == 0
+
+        # Test multiple WHERE conditions that don't match any rows
+        where_clause = AndCondition(
+            EqualsCondition(Column("name"), "'John'"),
+            EqualsCondition(Column("age"), "21")
+        )
+        result = dbms.query("users", where_clause)
+        assert len(result.rows) == 0
+
+
+def test_query_with_where_condition_after_update():
+    """Test querying with WHERE conditions after updating rows."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
+
+        # Update a row
+        dbms.update("users", {"id": "1", "name": "John", "age": "22"})
+
+        # Test WHERE condition after update
+        result = dbms.query("users", EqualsCondition(Column("age"), "22"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["id"] == "1"
+        assert result.rows[0]["name"] == "John"
+        assert result.rows[0]["age"] == "22"
+
+        # Test WHERE condition that should match old value
+        result = dbms.query("users", EqualsCondition(Column("age"), "20"))
+        assert len(result.rows) == 0
+
+
+def test_query_with_where_condition_after_delete():
+    """Test querying with WHERE conditions after deleting rows."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dbms = AppendOnlyDBMS(root_dir=Path(temp_dir))
+        dbms.create_database("test_db")
+        dbms.use_database("test_db")
+        dbms.create_table("users", ["id", "name", "age"])
+
+        # Insert test data
+        dbms.insert("users", {"id": "1", "name": "John", "age": "20"})
+        dbms.insert("users", {"id": "2", "name": "Jane", "age": "21"})
+
+        # Delete a row
+        dbms.delete("users", {"id": "1", "name": "John", "age": "20"})
+
+        # Test WHERE condition after delete
+        result = dbms.query("users", EqualsCondition(Column("id"), "1"))
+        assert len(result.rows) == 0
+
+        # Test WHERE condition that should still match
+        result = dbms.query("users", EqualsCondition(Column("id"), "2"))
+        assert len(result.rows) == 1
+        assert result.rows[0]["id"] == "2"
+        assert result.rows[0]["name"] == "Jane"
+        assert result.rows[0]["age"] == "21"

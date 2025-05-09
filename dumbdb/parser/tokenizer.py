@@ -26,6 +26,8 @@ class TokenType(Enum):
     INTO = "INTO"
     VALUES = "VALUES"
     DELETE = "DELETE"
+    UPDATE = "UPDATE"
+    SET = "SET"
     WHERE = "WHERE"
     AND = "AND"
     EQUALS = "="
@@ -78,6 +80,8 @@ class Tokenizer:
             (TokenType.INTO,       r'INTO\b'),
             (TokenType.VALUES,     r'VALUES\b'),
             (TokenType.DELETE,     r'DELETE\b'),
+            (TokenType.UPDATE,     r'UPDATE\b'),
+            (TokenType.SET,        r'SET\b'),
             (TokenType.WHERE,      r'WHERE\b'),
             (TokenType.AND,        r'AND\b'),
             (TokenType.EQUALS,     r'='),
@@ -130,7 +134,8 @@ class Tokenizer:
                         if token_type in (TokenType.SELECT, TokenType.FROM,
                                           TokenType.INSERT, TokenType.INTO,
                                           TokenType.VALUES, TokenType.WHERE,
-                                          TokenType.AND):
+                                          TokenType.AND, TokenType.SET,
+                                          TokenType.UPDATE, TokenType.DELETE):
                             tokens.append((token_type, text.upper()))
                         else:
                             tokens.append((token_type, text))

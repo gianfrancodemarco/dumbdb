@@ -9,7 +9,7 @@ from dumbdb.dbms.append_only_dbms import AppendOnlyDBMS
 from dumbdb.dbms.dbms import DBMS
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
                                InsertQuery, SelectQuery, Table,
-                               UseDatabaseQuery)
+                               UseDatabaseQuery, UpdateQuery, EqualsCondition)
 
 
 def test_query_result():
@@ -109,6 +109,27 @@ def test_executor_insert_query():
         "users", {"id": "1", "name": "'Alice'"})
 
 
+def test_executor_update_query():
+    """Test Executor handling of UPDATE queries."""
+    mock_dbms = Mock(spec=DBMS)
+    mock_dbms.update.return_value = QueryResult()
+    executor = Executor(mock_dbms)
+    query = UpdateQuery(
+        table=Table("users"),
+        set_clause={"name": "'John'", "age": "25"},
+        where_clause=None
+    )
+
+    # Execute query
+    result = executor.execute_update_query(query)
+
+    # Verify results
+    assert isinstance(result, QueryResult)
+    assert result.rows == []
+    mock_dbms.update.assert_called_once_with(
+        "users", {"name": "'John'", "age": "25"}, None)
+
+
 def test_executor_unknown_query_type():
     """Test Executor handling of unknown query types."""
     mock_dbms = Mock(spec=DBMS)
@@ -167,6 +188,78 @@ def test_db_engine_execute_insert():
     assert result.rows == []
     mock_dbms.insert.assert_called_once_with(
         "users", {"id": "1", "name": "'Alice'"})
+
+
+def test_db_engine_execute_update():
+    """Test DBEngine execution of UPDATE queries."""
+    mock_dbms = Mock(spec=DBMS)
+    mock_parser = Mock()
+    mock_tokenizer = Mock()
+
+    # Mock the tokenizer and parser
+    with patch('dumbdb.db_engine.Tokenizer') as mock_tokenizer_class:
+        mock_tokenizer_class.return_value = mock_tokenizer
+        mock_tokenizer.tokenize.return_value = [
+            'UPDATE', 'users', 'SET', 'name', '=', "'John'", ';'
+        ]
+        mock_parser.parse.return_value = UpdateQuery(
+            table=Table("users"),
+            set_clause={"name": "'John'"},
+            where_clause=None
+        )
+
+        # Create engine with mocked components
+        engine = DBEngine(dbms=mock_dbms, parser=mock_parser)
+        mock_dbms.update.return_value = QueryResult()
+
+        # Execute query
+        result = engine.execute_query("UPDATE users SET name = 'John';")
+
+        # Verify results
+        assert isinstance(result, QueryResult)
+        assert result.rows == []
+        mock_tokenizer.tokenize.assert_called_once_with(
+            "UPDATE users SET name = 'John';")
+        mock_parser.parse.assert_called_once()
+        mock_dbms.update.assert_called_once_with(
+            "users", {"name": "'John'"}, None)
+
+
+def test_db_engine_execute_update_with_where():
+    """Test DBEngine execution of UPDATE queries with WHERE clause."""
+    mock_dbms = Mock(spec=DBMS)
+    mock_parser = Mock()
+    mock_tokenizer = Mock()
+
+    # Mock the tokenizer and parser
+    with patch('dumbdb.db_engine.Tokenizer') as mock_tokenizer_class:
+        mock_tokenizer_class.return_value = mock_tokenizer
+        mock_tokenizer.tokenize.return_value = [
+            'UPDATE', 'users', 'SET', 'name', '=', "'John'",
+            'WHERE', 'id', '=', '1', ';'
+        ]
+        mock_parser.parse.return_value = UpdateQuery(
+            table=Table("users"),
+            set_clause={"name": "'John'"},
+            where_clause=EqualsCondition(Column("id"), "1")
+        )
+
+        # Create engine with mocked components
+        engine = DBEngine(dbms=mock_dbms, parser=mock_parser)
+        mock_dbms.update.return_value = QueryResult()
+
+        # Execute query
+        result = engine.execute_query(
+            "UPDATE users SET name = 'John' WHERE id = 1;")
+
+        # Verify results
+        assert isinstance(result, QueryResult)
+        assert result.rows == []
+        mock_tokenizer.tokenize.assert_called_once_with(
+            "UPDATE users SET name = 'John' WHERE id = 1;")
+        mock_parser.parse.assert_called_once()
+        mock_dbms.update.assert_called_once_with(
+            "users", {"name": "'John'"}, EqualsCondition(Column("id"), "1"))
 
 
 def test_db_engine_invalid_query():

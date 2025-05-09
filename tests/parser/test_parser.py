@@ -2,11 +2,11 @@ import pytest
 
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
                                InsertQuery, SelectQuery, Table,
-                               UseDatabaseQuery)
+                               UseDatabaseQuery, UpdateQuery, EqualsCondition)
 from dumbdb.parser.parser import (BaseParser, CreateDatabaseQueryParser,
                                   CreateTableQueryParser, InsertQueryParser,
                                   Parser, SelectQueryParser,
-                                  UseDatabaseQueryParser)
+                                  UseDatabaseQueryParser, UpdateQueryParser)
 from dumbdb.parser.tokenizer import TokenType
 
 
@@ -231,3 +231,113 @@ def test_parser_unknown_query_type():
     with pytest.raises(Exception) as exc_info:
         parser.parse(tokens)
     assert "Invalid syntax" in str(exc_info.value)
+
+
+def test_update_query_parser_simple():
+    """Test parsing a simple UPDATE query without WHERE clause."""
+    parser = UpdateQueryParser()
+    tokens = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, UpdateQuery)
+    assert query.table == Table("users")
+    assert query.set_clause == {"name": "'John'"}
+    assert query.where_clause is None
+
+
+def test_update_query_parser_multiple_columns():
+    """Test parsing an UPDATE query with multiple SET clauses."""
+    parser = UpdateQueryParser()
+    tokens = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.COMMA, ","),
+        (TokenType.IDENTIFIER, "age"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "25"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, UpdateQuery)
+    assert query.table == Table("users")
+    assert query.set_clause == {"name": "'John'", "age": "25"}
+    assert query.where_clause is None
+
+
+def test_update_query_parser_with_where():
+    """Test parsing an UPDATE query with WHERE clause."""
+    parser = UpdateQueryParser()
+    tokens = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, UpdateQuery)
+    assert query.table == Table("users")
+    assert query.set_clause == {"name": "'John'"}
+    assert isinstance(query.where_clause, EqualsCondition)
+    assert query.where_clause.column == Column("id")
+    assert query.where_clause.value == "1"
+
+
+def test_update_query_parser_invalid_syntax():
+    """Test handling of invalid UPDATE query syntax."""
+    parser = UpdateQueryParser()
+    tokens = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.WHERE, "WHERE"),  # Missing condition
+        (TokenType.SEMICOLON, ";")
+    ]
+    with pytest.raises(Exception) as exc_info:
+        parser.parse(tokens)
+    assert "Invalid syntax" in str(exc_info.value)
+
+
+def test_parser_update_query():
+    """Test the main Parser class with an UPDATE query."""
+    parser = Parser()
+    tokens = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    query = parser.parse(tokens)
+    assert isinstance(query, UpdateQuery)
+    assert query.table == Table("users")
+    assert query.set_clause == {"name": "'John'"}
+    assert isinstance(query.where_clause, EqualsCondition)
+    assert query.where_clause.column == Column("id")
+    assert query.where_clause.value == "1"

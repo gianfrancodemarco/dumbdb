@@ -7,7 +7,7 @@ from dumbdb.dbms.dbms import DBMS, QueryResult
 from dumbdb.parser.ast import (CreateDatabaseQuery, CreateTableQuery,
                                DropDatabaseQuery, DropTableQuery, InsertQuery,
                                Query, SelectQuery, ShowDatabasesQuery,
-                               ShowTablesQuery, UseDatabaseQuery)
+                               ShowTablesQuery, UseDatabaseQuery, UpdateQuery)
 from dumbdb.parser.parser import Parser
 from dumbdb.parser.tokenizer import Tokenizer
 
@@ -26,7 +26,8 @@ class Executor:
             ShowTablesQuery: self.execute_show_tables_query,
             DropTableQuery: self.execute_drop_table_query,
             SelectQuery: self.execute_select_query,
-            InsertQuery: self.execute_insert_query
+            InsertQuery: self.execute_insert_query,
+            UpdateQuery: self.execute_update_query
         }
 
         if type(query) not in operations:
@@ -60,6 +61,9 @@ class Executor:
 
     def execute_insert_query(self, query: InsertQuery) -> QueryResult:
         return self.dbms.insert(query.table.name, query.row)
+
+    def execute_update_query(self, query: UpdateQuery) -> QueryResult:
+        return self.dbms.update(query.table.name, query.set_clause, query.where_clause)
 
 
 @dataclass

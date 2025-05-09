@@ -5,7 +5,8 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple
 from dumbdb.parser.ast import (Column, CreateDatabaseQuery, CreateTableQuery,
                                DropDatabaseQuery, DropTableQuery, InsertQuery,
                                Query, SelectQuery, ShowDatabasesQuery,
-                               ShowTablesQuery, Table, UseDatabaseQuery)
+                               ShowTablesQuery, Table, UseDatabaseQuery,
+                               UpdateQuery)
 from dumbdb.parser.grammar import LiteralRule, Multiple, Or, ParseResult, WhereClauseRule
 from dumbdb.parser.tokenizer import TokenType
 
@@ -209,6 +210,44 @@ class InsertQueryParser(BaseParser):
         )
 
 
+@dataclass
+class UpdateQueryParser(BaseParser):
+    grammar_help = dedent("""
+        UPDATE <table_name> SET <column_name> = <value> [, <column_name> = <value>]* [WHERE <condition>];
+        <condition> = <column_name> = <value> [AND <condition>]
+    """)
+
+    grammar = [
+        LiteralRule(TokenType.UPDATE),
+        LiteralRule(TokenType.IDENTIFIER),
+        LiteralRule(TokenType.SET),
+        Multiple(
+            Or(
+                LiteralRule(TokenType.IDENTIFIER),
+                LiteralRule(TokenType.EQUALS),
+                LiteralRule(TokenType.LITERAL),
+                LiteralRule(TokenType.COMMA)
+            )
+        ),
+        Or(LiteralRule(TokenType.SEMICOLON), WhereClauseRule()),
+    ]
+
+    def build_ast(self, values: List[Any]) -> UpdateQuery:
+        # Parse the SET clause
+        set_clause = {}
+        set_values = values[3]
+        for i in range(0, len(set_values), 3):
+            column = set_values[i]
+            value = set_values[i + 2]
+            set_clause[column] = value
+
+        return UpdateQuery(
+            table=Table(values[1]),
+            set_clause=set_clause,
+            where_clause=values[4] if values[4] != TokenType.SEMICOLON.value else None
+        )
+
+
 # @dataclass
 # class DeleteQueryParser(BaseParser):
 #     """
@@ -244,6 +283,7 @@ class Parser:
         TokenType.USE: UseDatabaseQueryParser(),
         TokenType.SELECT: SelectQueryParser(),
         TokenType.INSERT: InsertQueryParser(),
+        TokenType.UPDATE: UpdateQueryParser(),
         # TokenType.DELETE: DeleteQueryParser(),
         TokenType.DROP: {
             TokenType.DATABASE: DropDatabaseQueryParser(),

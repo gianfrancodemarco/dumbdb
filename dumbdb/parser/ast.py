@@ -99,3 +99,15 @@ class InsertQuery(Query):
 
     def __post_init__(self):
         self.row = dict(zip(self.columns, self.values))
+
+
+@dataclass
+class UpdateQuery(Query):
+    """Represents an UPDATE query in the AST.
+
+    Example:
+        UPDATE users SET name = 'John' WHERE id = 1;
+    """
+    table: Table
+    set_clause: dict[str, str]  # column -> value mapping
+    where_clause: Optional[WhereCondition] = None

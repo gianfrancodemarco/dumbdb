@@ -186,3 +186,66 @@ def test_invalid_character():
 #         (TokenType.SEMICOLON, ";")
 #     ]
 #     assert tokens == expected
+
+
+def test_update_query():
+    """Test tokenizing an UPDATE query."""
+    tokenizer = Tokenizer()
+    sql = "UPDATE users SET name = 'John', age = 25 WHERE id = 1;"
+    tokens = tokenizer.tokenize(sql)
+    expected = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.COMMA, ","),
+        (TokenType.IDENTIFIER, "age"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "25"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    assert tokens == expected
+
+
+def test_update_query_simple():
+    """Test tokenizing a simple UPDATE query without WHERE clause."""
+    tokenizer = Tokenizer()
+    sql = "UPDATE users SET name = 'John';"
+    tokens = tokenizer.tokenize(sql)
+    expected = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    assert tokens == expected
+
+
+def test_update_query_case_insensitive():
+    """Test tokenizing an UPDATE query with case-insensitive keywords."""
+    tokenizer = Tokenizer()
+    sql = "update users set name = 'John' where id = 1;"
+    tokens = tokenizer.tokenize(sql)
+    expected = [
+        (TokenType.UPDATE, "UPDATE"),
+        (TokenType.IDENTIFIER, "users"),
+        (TokenType.SET, "SET"),
+        (TokenType.IDENTIFIER, "name"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "'John'"),
+        (TokenType.WHERE, "WHERE"),
+        (TokenType.IDENTIFIER, "id"),
+        (TokenType.EQUALS, "="),
+        (TokenType.LITERAL, "1"),
+        (TokenType.SEMICOLON, ";")
+    ]
+    assert tokens == expected
